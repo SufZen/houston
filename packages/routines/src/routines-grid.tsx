@@ -38,7 +38,7 @@ export function RoutinesGrid({
   if (loading && routines.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-[#9b9b9b] animate-pulse">
+        <p className="text-sm text-muted-foreground animate-pulse">
           Loading routines...
         </p>
       </div>
@@ -52,7 +52,7 @@ export function RoutinesGrid({
           <h1 className="text-2xl font-semibold text-foreground tracking-tight">
             Automate recurring work
           </h1>
-          <p className="text-sm text-[#5d5d5d]">
+          <p className="text-sm text-muted-foreground">
             Routines run on a schedule so Houston can work for you
             automatically — daily reports, weekly research, and more.
           </p>

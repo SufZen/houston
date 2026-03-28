@@ -68,7 +68,7 @@ export function RoutineDetailPage({
   if (!routine || !form) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-[#9b9b9b]">Routine not found</p>
+        <p className="text-sm text-muted-foreground">Routine not found</p>
       </div>
     )
   }
@@ -76,15 +76,15 @@ export function RoutineDetailPage({
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 px-6 py-3 border-b border-black/[0.06]">
+      <div className="shrink-0 px-6 py-3 border-b border-border">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <button
             onClick={onBack}
-            className="size-8 flex items-center justify-center rounded-lg text-[#9b9b9b] hover:text-[#0d0d0d] hover:bg-black/[0.05] transition-colors"
+            className="size-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           >
             <ArrowLeft className="size-4" />
           </button>
-          <h1 className="text-sm font-medium text-[#0d0d0d] truncate flex-1">
+          <h1 className="text-sm font-medium text-foreground truncate flex-1">
             {form.name || "Untitled"}
           </h1>
         </div>

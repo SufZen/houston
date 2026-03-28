@@ -24,7 +24,7 @@ export function TabBar({
       {(title || menu || actions) && (
         <div className="flex items-center gap-2 mb-3">
           {title && (
-            <h1 className="text-xl font-semibold text-[#0d0d0d]">{title}</h1>
+            <h1 className="text-xl font-semibold text-foreground">{title}</h1>
           )}
           {menu}
           {actions && (
@@ -44,8 +44,8 @@ export function TabBar({
               className={cn(
                 "relative flex items-center gap-1.5 pb-2.5 text-sm transition-colors duration-200",
                 isActive
-                  ? "text-[#0d0d0d] font-medium"
-                  : "text-[#8e8e8e] hover:text-[#0d0d0d]",
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {tab.label}
@@ -54,15 +54,15 @@ export function TabBar({
                   className={cn(
                     "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-xs font-medium",
                     isActive
-                      ? "bg-[#0d0d0d] text-white"
-                      : "bg-[#e3e3e3] text-[#424242]",
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-accent text-accent-foreground",
                   )}
                 >
                   {tab.badge}
                 </span>
               )}
               {isActive && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#0d0d0d] rounded-full" />
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-full" />
               )}
             </button>
           );

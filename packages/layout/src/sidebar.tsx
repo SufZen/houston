@@ -32,14 +32,14 @@ export function AppSidebar({
 
   return (
     <>
-      <aside className="w-[200px] bg-[#f5f5f5] flex flex-col h-full shrink-0 border-r border-black/[0.06]">
+      <aside className="w-[200px] bg-secondary flex flex-col h-full shrink-0 border-r border-border">
         {/* Header: logo + add button */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <div className="flex items-center gap-2">{logo}</div>
           {onAdd && (
             <button
               onClick={onAdd}
-              className="size-7 flex items-center justify-center rounded-md text-[#8e8e8e] hover:text-[#0d0d0d] hover:bg-black/[0.05] transition-colors"
+              className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             >
               <Plus className="size-4" strokeWidth={2} />
             </button>
@@ -49,7 +49,7 @@ export function AppSidebar({
         {/* Section label */}
         {sectionLabel && (
           <div className="px-4 pt-3 pb-1.5">
-            <span className="text-[12px] text-[#8e8e8e]">{sectionLabel}</span>
+            <span className="text-[12px] text-muted-foreground">{sectionLabel}</span>
           </div>
         )}
 
@@ -65,8 +65,8 @@ export function AppSidebar({
                 className={cn(
                   "w-full text-left px-3 py-1.5 rounded-lg text-[13px] transition-colors duration-100 truncate",
                   isActive
-                    ? "bg-black/[0.07] text-[#0d0d0d]"
-                    : "text-[#424242] hover:bg-black/[0.04]",
+                    ? "bg-accent text-foreground"
+                    : "text-accent-foreground hover:bg-accent/50",
                 )}
               >
                 {item.name}

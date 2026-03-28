@@ -74,11 +74,11 @@ export function ReviewDetail({
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 px-4 py-3 border-b border-black/[0.06]">
+      <div className="shrink-0 px-4 py-3 border-b border-border">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
           <button
             onClick={onBack}
-            className="flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/[0.05] transition-colors duration-200"
+            className="flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-200"
             aria-label="Back to Review"
           >
             <ArrowLeft className="size-4" />
@@ -117,7 +117,7 @@ export function ReviewDetail({
       </div>
 
       {/* Footer -- input + approve button */}
-      <div className="shrink-0 px-4 py-3 border-t border-black/[0.06]">
+      <div className="shrink-0 px-4 py-3 border-t border-border">
         <div className="max-w-3xl mx-auto flex items-center gap-2">
           <Input
             value={feedbackText}

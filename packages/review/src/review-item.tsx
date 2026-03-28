@@ -12,17 +12,17 @@ function statusIndicator(status: RunStatus) {
     case "needs_you":
       return (
         <span className="relative flex size-3 shrink-0">
-          <span className="absolute inline-flex size-full rounded-full bg-[#0d0d0d]" />
+          <span className="absolute inline-flex size-full rounded-full bg-foreground" />
         </span>
       );
     case "running":
       return (
-        <Loader2 className="size-3.5 shrink-0 animate-spin text-[#9b9b9b]" />
+        <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
       );
     case "done":
     case "approved":
       return (
-        <span className="flex size-2.5 shrink-0 rounded-full border-[1.5px] border-[#9b9b9b]/40" />
+        <span className="flex size-2.5 shrink-0 rounded-full border-[1.5px] border-muted-foreground/40" />
       );
     case "error":
     case "failed":
@@ -33,7 +33,7 @@ function statusIndicator(status: RunStatus) {
       );
     default:
       return (
-        <span className="flex size-2.5 shrink-0 rounded-full border-[1.5px] border-[#9b9b9b]/30" />
+        <span className="flex size-2.5 shrink-0 rounded-full border-[1.5px] border-muted-foreground/30" />
       );
   }
 }
@@ -81,7 +81,7 @@ export function ReviewItem({ item, onClick }: ReviewItemProps) {
       onClick={onClick}
       className={cn(
         "w-full text-left flex items-center gap-3 px-4 py-3 transition-colors duration-200",
-        "hover:bg-black/[0.03]",
+        "hover:bg-accent/30",
       )}
     >
       {/* Status indicator */}
@@ -95,14 +95,14 @@ export function ReviewItem({ item, onClick }: ReviewItemProps) {
           className={cn(
             "text-sm truncate",
             isUnreviewed
-              ? "font-semibold text-[#0d0d0d]"
-              : "font-normal text-[#0d0d0d]/70",
+              ? "font-semibold text-foreground"
+              : "font-normal text-foreground/70",
             isFailed && "text-red-600",
           )}
         >
           {item.title}
         </p>
-        <p className="text-xs text-[#9b9b9b] truncate mt-0.5">
+        <p className="text-xs text-muted-foreground truncate mt-0.5">
           {displaySubtitle}
           {isRunning && item.title !== item.subtitle && (
             <span className="animate-pulse"> &middot; Running...</span>
@@ -111,13 +111,13 @@ export function ReviewItem({ item, onClick }: ReviewItemProps) {
       </div>
 
       {/* Timestamp */}
-      <span className="text-xs text-[#9b9b9b]/50 shrink-0">
+      <span className="text-xs text-muted-foreground/50 shrink-0">
         {relativeTime(item.createdAt)}
       </span>
 
       {/* Right chevron for actionable items */}
       {isUnreviewed && (
-        <ChevronRight className="size-4 shrink-0 text-[#9b9b9b]" />
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
       )}
     </button>
   );

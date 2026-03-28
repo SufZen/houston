@@ -111,7 +111,7 @@ export function ChatPanel({
         <div className="max-w-3xl mx-auto w-full px-4 pt-3">
           <button
             onClick={onBack}
-            className="text-sm text-[#5d5d5d] hover:text-[#0d0d0d] transition-colors flex items-center gap-1"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
           >
             <span>←</span> Back to chats
           </button>

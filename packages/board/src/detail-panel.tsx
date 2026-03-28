@@ -38,20 +38,20 @@ export function DetailPanel({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
-      <div className="shrink-0 px-4 py-3 border-b border-black/[0.06]">
+      <div className="shrink-0 px-4 py-3 border-b border-border">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
-            className="size-7 flex items-center justify-center rounded-md text-[#8e8e8e] hover:text-[#0d0d0d] hover:bg-black/[0.04] transition-colors"
+            className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
           >
             <ArrowLeft className="size-4" strokeWidth={1.75} />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-[#0d0d0d] truncate">
+            <p className="text-sm font-medium text-foreground truncate">
               {title}
             </p>
             {(subtitle || status) && (
-              <p className="text-[11px] text-[#8e8e8e]">
+              <p className="text-[11px] text-muted-foreground">
                 {subtitle}
                 {subtitle && status && (
                   <span className="mx-1">&middot;</span>

@@ -75,34 +75,34 @@ export function CommunitySkillsSection({
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-sm font-medium text-[#0d0d0d]">
+        <h2 className="text-sm font-medium text-foreground">
           Discover skills from the community
         </h2>
-        <p className="text-xs text-[#9b9b9b] mt-0.5">
+        <p className="text-xs text-muted-foreground mt-0.5">
           Browse thousands of ready-made procedures on skills.sh
         </p>
       </div>
 
       {/* Search bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#9b9b9b]" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={'Search by what you want to achieve, like "sdr" or "writing"'}
-          className="w-full h-9 pl-9 pr-3 rounded-full border border-black/[0.10] bg-white text-sm
-                     placeholder:text-black/40 focus:outline-none focus:border-black/[0.25] transition-colors"
+          className="w-full h-9 pl-9 pr-3 rounded-full border border-border bg-white text-sm
+                     placeholder:text-muted-foreground/60 focus:outline-none focus:border-border/80 transition-colors"
         />
       </div>
 
       {/* Results grid */}
       {loading && results.length === 0 && (
-        <p className="text-sm text-[#9b9b9b] animate-pulse">Loading...</p>
+        <p className="text-sm text-muted-foreground animate-pulse">Loading...</p>
       )}
 
       {!loading && results.length === 0 && query.trim() && (
-        <p className="text-sm text-[#9b9b9b]">
+        <p className="text-sm text-muted-foreground">
           No skills found for "{query.trim()}"
         </p>
       )}
@@ -124,7 +124,7 @@ export function CommunitySkillsSection({
       {hasMore && (
         <button
           onClick={() => setShowAll(true)}
-          className="text-sm text-[#5d5d5d] hover:text-[#0d0d0d] transition-colors"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           Show {results.length - PAGE_SIZE} more
         </button>

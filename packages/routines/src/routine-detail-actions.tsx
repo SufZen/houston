@@ -35,17 +35,17 @@ export function RoutineDetailActions({
 
   const pillBtn = cn(
     "h-9 px-4 text-sm font-medium rounded-full transition-colors",
-    "border border-black/[0.1]",
+    "border border-border",
   )
 
   return (
-    <div className="flex items-center gap-2 pt-4 border-t border-black/[0.06]">
+    <div className="flex items-center gap-2 pt-4 border-t border-border">
       <button
         onClick={onSave}
         disabled={saving}
         className={cn(
           "h-9 px-4 text-sm font-medium rounded-full",
-          "bg-[#0d0d0d] text-white hover:bg-[#0d0d0d]/90 transition-colors",
+          "bg-primary text-primary-foreground hover:bg-primary/90 transition-colors",
           "disabled:opacity-50",
         )}
       >
@@ -55,13 +55,13 @@ export function RoutineDetailActions({
         </span>
       </button>
 
-      <button onClick={onRunNow} className={cn(pillBtn, "text-[#0d0d0d] hover:bg-[#f5f5f5]")}>
+      <button onClick={onRunNow} className={cn(pillBtn, "text-foreground hover:bg-secondary")}>
         <span className="flex items-center gap-1.5">
           <RefreshCw className="size-3.5" /> Run Now
         </span>
       </button>
 
-      <button onClick={onToggle} className={cn(pillBtn, "text-[#0d0d0d] hover:bg-[#f5f5f5]")}>
+      <button onClick={onToggle} className={cn(pillBtn, "text-foreground hover:bg-secondary")}>
         <span className="flex items-center gap-1.5">
           {isActive ? (
             <><Pause className="size-3.5" /> Pause</>
@@ -84,7 +84,7 @@ export function RoutineDetailActions({
           </button>
           <button
             onClick={() => setConfirmDelete(false)}
-            className={cn(pillBtn, "text-[#0d0d0d] hover:bg-[#f5f5f5]")}
+            className={cn(pillBtn, "text-foreground hover:bg-secondary")}
           >
             Cancel
           </button>
@@ -92,7 +92,7 @@ export function RoutineDetailActions({
       ) : (
         <button
           onClick={handleDelete}
-          className={cn(pillBtn, "text-[#9b9b9b] hover:text-red-600 hover:border-red-200")}
+          className={cn(pillBtn, "text-muted-foreground hover:text-red-600 hover:border-red-200")}
         >
           <span className="flex items-center gap-1.5">
             <Trash2 className="size-3.5" /> Delete

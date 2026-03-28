@@ -15,10 +15,10 @@ export function RunHistory({ runs, onSelectRun }: RunHistoryProps) {
   if (runs.length === 0) {
     return (
       <div>
-        <p className="text-xs font-medium text-[#9b9b9b] uppercase tracking-wide mb-2">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
           Runs
         </p>
-        <p className="text-sm text-[#9b9b9b]">No runs yet.</p>
+        <p className="text-sm text-muted-foreground">No runs yet.</p>
       </div>
     )
   }
@@ -30,7 +30,7 @@ export function RunHistory({ runs, onSelectRun }: RunHistoryProps) {
 
   return (
     <div>
-      <p className="text-xs font-medium text-[#9b9b9b] uppercase tracking-wide mb-2">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
         Run History
       </p>
       <div className="space-y-1">
@@ -66,20 +66,20 @@ function RunRow({ run, onClick }: { run: RoutineRun; onClick: () => void }) {
       case "failed":
         return <AlertCircle className="size-3.5 text-red-500" />
       default:
-        return <Clock className="size-3.5 text-[#9b9b9b]" />
+        return <Clock className="size-3.5 text-muted-foreground" />
     }
   })()
 
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-black/[0.03] transition-colors"
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-accent/30 transition-colors"
     >
       {icon}
-      <span className="text-sm text-[#0d0d0d] truncate flex-1">
+      <span className="text-sm text-foreground truncate flex-1">
         {run.output_title || `${dateStr} ${timeStr}`}
       </span>
-      <span className="text-xs text-[#9b9b9b] shrink-0">
+      <span className="text-xs text-muted-foreground shrink-0">
         {dateStr} {timeStr}
       </span>
     </button>

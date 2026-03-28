@@ -22,12 +22,12 @@ const TRIGGER_OPTIONS: { value: TriggerType; label: string }[] = [
 ]
 
 const inputClass = cn(
-  "w-full px-3 py-2 rounded-xl border border-black/[0.08] bg-white",
-  "text-sm text-[#0d0d0d] placeholder:text-[#b4b4b4]",
-  "focus:outline-none focus:border-black/20 transition-colors",
+  "w-full px-3 py-2 rounded-xl border border-border bg-white",
+  "text-sm text-foreground placeholder:text-muted-foreground/60",
+  "focus:outline-none focus:border-border/80 transition-colors",
 )
 
-const labelClass = "text-xs font-medium text-[#8e8e8e] mb-1.5 block"
+const labelClass = "text-xs font-medium text-muted-foreground mb-1.5 block"
 
 export function RoutineEditForm({
   form,
@@ -121,8 +121,8 @@ export function RoutineEditForm({
               className={cn(
                 "h-9 px-4 rounded-full text-sm font-medium transition-colors",
                 form.approvalMode === mode
-                  ? "bg-[#0d0d0d] text-white"
-                  : "border border-black/[0.1] text-[#5d5d5d] hover:bg-[#f5f5f5]",
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border text-muted-foreground hover:bg-secondary",
               )}
             >
               {mode === "manual" ? "Manual Review" : "Auto-approve"}

@@ -10,7 +10,7 @@ export interface RoutineCardProps {
 
 const STATUS_DOT: Record<string, string> = {
   active: "bg-green-500",
-  paused: "bg-[#9b9b9b]",
+  paused: "bg-muted-foreground",
   needs_setup: "bg-yellow-500",
   error: "bg-red-500",
 }
@@ -38,25 +38,25 @@ export function RoutineCard({ routine, onClick }: RoutineCardProps) {
     <button
       onClick={onClick}
       className={cn(
-        "w-full text-left rounded-2xl border border-black/[0.08] p-5",
-        "bg-white hover:border-black/[0.15] transition-all duration-150",
+        "w-full text-left rounded-2xl border border-border p-5",
+        "bg-white hover:border-border/80 transition-all duration-150",
         "hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]",
         "flex flex-col gap-3",
       )}
     >
       {/* Top: name + status */}
       <div className="flex items-start gap-2.5">
-        <h3 className="text-[15px] font-medium text-[#0d0d0d] leading-snug flex-1 min-w-0">
+        <h3 className="text-[15px] font-medium text-foreground leading-snug flex-1 min-w-0">
           {displayName}
         </h3>
         <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
           <div
             className={cn(
               "size-1.5 rounded-full",
-              STATUS_DOT[routine.status] ?? "bg-[#9b9b9b]",
+              STATUS_DOT[routine.status] ?? "bg-muted-foreground",
             )}
           />
-          <span className="text-xs text-[#9b9b9b]">
+          <span className="text-xs text-muted-foreground">
             {STATUS_LABEL[routine.status] ?? routine.status}
           </span>
         </div>
@@ -64,13 +64,13 @@ export function RoutineCard({ routine, onClick }: RoutineCardProps) {
 
       {/* Description */}
       {routine.description && (
-        <p className="text-sm text-[#5d5d5d] leading-relaxed line-clamp-2">
+        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
           {routine.description}
         </p>
       )}
 
       {/* Footer: trigger + last run + run count */}
-      <div className="flex items-center gap-3 text-xs text-[#9b9b9b] pt-1">
+      <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
         <span className="flex items-center gap-1">
           <Clock className="size-3" />
           {triggerLabel}

@@ -21,8 +21,8 @@ export function ConnectionRow({ connection }: ConnectionRowProps) {
           onError={() => setImgError(true)}
         />
       ) : (
-        <div className="size-10 rounded-[10px] bg-[#e8e8e8] flex items-center justify-center shrink-0">
-          <span className="text-sm font-semibold text-[#5d5d5d]">
+        <div className="size-10 rounded-[10px] bg-accent flex items-center justify-center shrink-0">
+          <span className="text-sm font-semibold text-muted-foreground">
             {initial}
           </span>
         </div>
@@ -30,10 +30,10 @@ export function ConnectionRow({ connection }: ConnectionRowProps) {
 
       {/* Text */}
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium text-[#0d0d0d] truncate">
+        <p className="text-[13px] font-medium text-foreground truncate">
           {connection.display_name}
         </p>
-        <p className="text-[12px] text-[#8e8e8e] truncate">
+        <p className="text-[12px] text-muted-foreground truncate">
           {connection.email ?? connection.description}
         </p>
       </div>

@@ -37,7 +37,7 @@ export function SkillDetailPage({
   if (!skill) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-[#9b9b9b]">Skill not found</p>
+        <p className="text-sm text-muted-foreground">Skill not found</p>
       </div>
     )
   }
@@ -47,19 +47,19 @@ export function SkillDetailPage({
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 px-6 py-3 border-b border-black/[0.06]">
+      <div className="shrink-0 px-6 py-3 border-b border-border">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <button
             onClick={onBack}
-            className="size-8 flex items-center justify-center rounded-lg text-[#9b9b9b] hover:text-[#0d0d0d] hover:bg-black/[0.05] transition-colors"
+            className="size-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           >
             <ArrowLeft className="size-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-medium text-[#0d0d0d] truncate">
+            <h1 className="text-sm font-medium text-foreground truncate">
               {skill.name}
             </h1>
-            <p className="text-xs text-[#9b9b9b] flex items-center gap-1 truncate">
+            <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
               <FileText className="size-3" />
               {skill.file_path}
             </p>
@@ -72,26 +72,26 @@ export function SkillDetailPage({
         <div className="max-w-2xl mx-auto space-y-8">
           {/* Instructions */}
           <section>
-            <label className="block text-xs font-medium text-[#9b9b9b] tracking-wider mb-2">
+            <label className="block text-xs font-medium text-muted-foreground tracking-wider mb-2">
               Instructions
             </label>
             <textarea
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
               rows={12}
-              className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-[#0d0d0d] placeholder:text-[#9b9b9b] focus:outline-none focus:border-black/[0.2] resize-y font-mono"
+              className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-border/80 resize-y font-mono"
               placeholder="Instructions for this skill..."
             />
             <div className="flex items-center gap-3 mt-3">
               <button
                 onClick={handleSave}
                 disabled={!isDirty || saving}
-                className="px-4 py-2 rounded-full text-sm font-medium bg-[#0d0d0d] text-white hover:bg-[#2d2d2d] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {saving ? "Saving..." : "Save"}
               </button>
               {isDirty && (
-                <span className="text-xs text-[#9b9b9b]">Unsaved changes</span>
+                <span className="text-xs text-muted-foreground">Unsaved changes</span>
               )}
             </div>
           </section>
@@ -99,13 +99,13 @@ export function SkillDetailPage({
           {/* Learnings */}
           {skill.learnings.trim() && (
             <section>
-              <label className="block text-xs font-medium text-[#9b9b9b] tracking-wider mb-2">
+              <label className="block text-xs font-medium text-muted-foreground tracking-wider mb-2">
                 Learnings
               </label>
-              <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] px-4 py-3 text-sm text-[#5d5d5d] whitespace-pre-wrap font-mono">
+              <div className="rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-muted-foreground whitespace-pre-wrap font-mono">
                 {skill.learnings}
               </div>
-              <p className="text-xs text-[#9b9b9b] mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 Learnings are added automatically when you give feedback on completed tasks.
               </p>
             </section>

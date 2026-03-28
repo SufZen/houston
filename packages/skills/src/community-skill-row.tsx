@@ -32,14 +32,14 @@ export function CommunitySkillRow({
 }: CommunitySkillRowProps) {
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-black/[0.08]
-                 bg-white hover:border-black/[0.15] transition-all"
+      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border
+                 bg-white hover:border-border/80 transition-all"
     >
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-[#0d0d0d] truncate">
+        <p className="text-sm font-medium text-foreground truncate">
           {kebabToTitle(skill.name)}
         </p>
-        <p className="text-xs text-[#9b9b9b] truncate mt-0.5">
+        <p className="text-xs text-muted-foreground truncate mt-0.5">
           {skill.source} · {formatInstalls(skill.installs)} installs
         </p>
       </div>
@@ -49,8 +49,8 @@ export function CommunitySkillRow({
         className={cn(
           "shrink-0 size-7 flex items-center justify-center rounded-lg transition-colors",
           installed
-            ? "text-[#9b9b9b] cursor-default"
-            : "text-[#9b9b9b] hover:bg-black/[0.06] hover:text-[#0d0d0d]",
+            ? "text-muted-foreground cursor-default"
+            : "text-muted-foreground hover:bg-accent hover:text-foreground",
           installing && "opacity-50 cursor-wait",
         )}
       >

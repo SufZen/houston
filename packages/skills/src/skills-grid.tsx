@@ -31,7 +31,7 @@ export function SkillsGrid({
   if (loading && skills.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-[#9b9b9b] animate-pulse">
+        <p className="text-sm text-muted-foreground animate-pulse">
           Loading skills...
         </p>
       </div>
@@ -44,7 +44,7 @@ export function SkillsGrid({
         {/* Installed section */}
         {sorted.length > 0 && (
           <section className="space-y-3">
-            <h2 className="text-sm font-medium text-[#0d0d0d] normal-case">Installed</h2>
+            <h2 className="text-sm font-medium text-foreground normal-case">Installed</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
               {sorted.map((skill) => (
                 <SkillRow

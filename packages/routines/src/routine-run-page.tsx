@@ -52,19 +52,19 @@ export function RoutineRunPage({
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 px-6 py-3 border-b border-black/[0.06]">
+      <div className="shrink-0 px-6 py-3 border-b border-border">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
           <button
             onClick={onBack}
-            className="size-7 flex items-center justify-center rounded-md text-[#8e8e8e] hover:text-[#0d0d0d] hover:bg-black/[0.04] transition-colors"
+            className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
           >
             <ArrowLeft className="size-4" strokeWidth={1.75} />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-[#0d0d0d] truncate">
+            <p className="text-sm font-medium text-foreground truncate">
               {displayName}
             </p>
-            <p className="text-[11px] text-[#8e8e8e]">
+            <p className="text-[11px] text-muted-foreground">
               {runDate}
               <span className="mx-1">&middot;</span>
               <span className={cn(isRunning && "text-blue-500")}>
@@ -87,7 +87,7 @@ export function RoutineRunPage({
         })
       ) : (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-[#9b9b9b]">Run not found</p>
+          <p className="text-sm text-muted-foreground">Run not found</p>
         </div>
       )}
     </div>

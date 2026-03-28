@@ -25,16 +25,16 @@ export function ConnectionsView({
         {!loading && items.length > 0 && (
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-xl font-semibold text-[#0d0d0d] tracking-tight">
+              <h1 className="text-xl font-semibold text-foreground tracking-tight">
                 Connected apps
               </h1>
-              <p className="text-[13px] text-[#8e8e8e] mt-1">
+              <p className="text-[13px] text-muted-foreground mt-1">
                 Services Houston can use across all your projects
               </p>
             </div>
             <button
               onClick={onManage}
-              className="inline-flex items-center gap-1.5 h-8 px-4 rounded-full bg-[#0d0d0d] text-white text-xs font-medium hover:bg-[#424242] transition-colors duration-200 shrink-0"
+              className="inline-flex items-center gap-1.5 h-8 px-4 rounded-full bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors duration-200 shrink-0"
             >
               Manage connections
               <ExternalLink className="size-3" />
@@ -45,8 +45,8 @@ export function ConnectionsView({
         {/* Loading */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <Loader2 className="size-5 text-[#b4b4b4] animate-spin" />
-            <p className="text-[13px] text-[#8e8e8e]">
+            <Loader2 className="size-5 text-muted-foreground/60 animate-spin" />
+            <p className="text-[13px] text-muted-foreground">
               Checking your connections...
             </p>
           </div>
@@ -59,14 +59,14 @@ export function ConnectionsView({
               <h1 className="text-2xl font-semibold text-foreground tracking-tight">
                 Connect your apps
               </h1>
-              <p className="text-sm text-[#5d5d5d]">
+              <p className="text-sm text-muted-foreground">
                 Set up Composio so Houston can use Gmail, Slack, Google Drive,
                 and 100+ other services on your behalf.
               </p>
             </div>
             <button
               onClick={onManage}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-[#0d0d0d] text-white text-sm font-medium hover:bg-[#424242] transition-colors duration-200"
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors duration-200"
             >
               Set up connections
               <ExternalLink className="size-3.5" />
@@ -81,9 +81,9 @@ export function ConnectionsView({
               <h1 className="text-2xl font-semibold text-foreground tracking-tight">
                 Composio needs authentication
               </h1>
-              <p className="text-sm text-[#5d5d5d]">
+              <p className="text-sm text-muted-foreground">
                 Open Claude Code in your terminal and type{" "}
-                <code className="px-1.5 py-0.5 bg-[#f4f4f4] rounded text-[13px]">
+                <code className="px-1.5 py-0.5 bg-muted rounded text-[13px]">
                   /mcp
                 </code>{" "}
                 to complete the OAuth setup for Composio.
@@ -91,7 +91,7 @@ export function ConnectionsView({
             </div>
             <button
               onClick={onRetry}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-[#0d0d0d] text-white text-sm font-medium hover:bg-[#424242] transition-colors duration-200"
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors duration-200"
             >
               <RefreshCw className="size-3.5" />
               Retry
@@ -106,26 +106,26 @@ export function ConnectionsView({
               <h1 className="text-2xl font-semibold text-foreground tracking-tight">
                 Couldn't load connections
               </h1>
-              <p className="text-sm text-[#5d5d5d]">
+              <p className="text-sm text-muted-foreground">
                 Composio is set up but we couldn't fetch your connections. This
                 can happen if your authentication expired or the service is
                 temporarily unavailable.
               </p>
-              <p className="text-xs text-[#8e8e8e] font-mono mt-2">
+              <p className="text-xs text-muted-foreground font-mono mt-2">
                 {result.message}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={onRetry}
-                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-[#0d0d0d] text-white text-sm font-medium hover:bg-[#424242] transition-colors duration-200"
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors duration-200"
               >
                 <RefreshCw className="size-3.5" />
                 Retry
               </button>
               <button
                 onClick={onManage}
-                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full border border-black/15 bg-white text-[#0d0d0d] text-sm font-medium hover:bg-gray-50 transition-colors duration-200"
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full border border-border bg-white text-foreground text-sm font-medium hover:bg-secondary transition-colors duration-200"
               >
                 Reconnect
                 <ExternalLink className="size-3.5" />
@@ -141,14 +141,14 @@ export function ConnectionsView({
               <h1 className="text-2xl font-semibold text-foreground tracking-tight">
                 No apps connected yet
               </h1>
-              <p className="text-sm text-[#5d5d5d]">
+              <p className="text-sm text-muted-foreground">
                 Connect Gmail, Slack, Google Drive, and 100+ other services so
                 Houston can use them across all your projects.
               </p>
             </div>
             <button
               onClick={onManage}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-[#0d0d0d] text-white text-sm font-medium hover:bg-[#424242] transition-colors duration-200"
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors duration-200"
             >
               Add a connection
               <ExternalLink className="size-3.5" />
