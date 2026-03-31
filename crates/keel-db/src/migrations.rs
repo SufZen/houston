@@ -169,6 +169,24 @@ impl Database {
             .await
             .ok();
 
+        // Chat feed persistence (main conversation history across app restarts).
+        self.conn()
+            .execute_batch(
+                "CREATE TABLE IF NOT EXISTS chat_feed (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id TEXT NOT NULL,
+                feed_key TEXT NOT NULL DEFAULT 'main',
+                feed_type TEXT NOT NULL,
+                data_json TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'desktop',
+                timestamp TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_chat_feed_project_key
+                ON chat_feed(project_id, feed_key);",
+            )
+            .await
+            .ok();
+
         Ok(())
     }
 }

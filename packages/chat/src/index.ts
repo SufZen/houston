@@ -168,3 +168,5 @@ export type { ToolActivityProps, ToolsAndCardsProps } from "./chat-helpers";
 // === Utilities ===
 export { Typewriter } from "./typewriter";
 export { mergeFeedItem } from "./feed-merge";
+export { ChannelAvatar } from "./channel-avatar";
+export type { ChannelSource } from "./channel-avatar";

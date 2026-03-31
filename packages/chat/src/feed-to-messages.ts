@@ -21,6 +21,8 @@ export interface ChatMessage {
   isStreaming: boolean;
   reasoning?: { content: string; isStreaming: boolean };
   tools: ToolEntry[];
+  /** Source channel if the message came from an external channel. */
+  source?: string;
 }
 
 export function feedItemsToMessages(items: FeedItem[]): ChatMessage[] {
@@ -54,16 +56,19 @@ export function feedItemsToMessages(items: FeedItem[]): ChatMessage[] {
 
   for (const item of items) {
     switch (item.feed_type) {
-      case "user_message":
+      case "user_message": {
         flush();
+        const { source, text } = extractSource(item.data);
         messages.push({
           key: `user-${messages.length}`,
           from: "user",
-          content: item.data,
+          content: text,
           isStreaming: false,
           tools: [],
+          source,
         });
         break;
+      }
 
       case "assistant_text": {
         const msg = ensureAssistant();
@@ -154,4 +159,16 @@ export function feedItemsToMessages(items: FeedItem[]): ChatMessage[] {
 
   flush();
   return messages;
+}
+
+/** Extract a `[ChannelName]` prefix from a user message, if present. */
+function extractSource(text: string): { source?: string; text: string } {
+  const match = text.match(/^\[(\w+)\]\s*/);
+  if (match) {
+    return {
+      source: match[1].toLowerCase(),
+      text: text.slice(match[0].length),
+    };
+  }
+  return { text };
 }

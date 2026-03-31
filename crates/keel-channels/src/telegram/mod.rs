@@ -109,6 +109,19 @@ impl Channel for TelegramChannel {
         Ok(())
     }
 
+    async fn send_typing(&self, channel_id: &str) -> anyhow::Result<()> {
+        let url = format!(
+            "https://api.telegram.org/bot{}/sendChatAction",
+            self.bot_token
+        );
+        let body = serde_json::json!({
+            "chat_id": channel_id,
+            "action": "typing",
+        });
+        let _ = self.http_client.post(&url).json(&body).send().await;
+        Ok(())
+    }
+
     async fn send_message(&self, channel_id: &str, text: &str) -> anyhow::Result<()> {
         let url = format!(
             "https://api.telegram.org/bot{}/sendMessage",

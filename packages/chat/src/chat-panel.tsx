@@ -63,6 +63,8 @@ export interface ChatPanelProps {
   toolLabels?: ToolsAndCardsProps["toolLabels"];
   isSpecialTool?: ToolsAndCardsProps["isSpecialTool"];
   renderToolResult?: ToolsAndCardsProps["renderToolResult"];
+  /** Optional callback to render an avatar for a message (e.g., channel logo). */
+  renderMessageAvatar?: (msg: import("./feed-to-messages").ChatMessage) => ReactNode | undefined;
 }
 
 function deriveStatus(items: FeedItem[], isLoading: boolean): ChatStatus {
@@ -100,6 +102,7 @@ export function ChatPanel({
   toolLabels,
   isSpecialTool,
   renderToolResult,
+  renderMessageAvatar,
 }: ChatPanelProps) {
   const status = statusProp ?? deriveStatus(feedItems, isLoading);
   const messages = useMemo(() => feedItemsToMessages(feedItems), [feedItems]);
@@ -124,7 +127,7 @@ export function ChatPanel({
               const isLastMsg = idx === messages.length - 1;
               const streaming = msg.isStreaming && isLastMsg;
               return (
-                <Message from={msg.from} key={msg.key}>
+                <Message from={msg.from} key={msg.key} avatar={renderMessageAvatar?.(msg)}>
                   <div>
                     {msg.reasoning && (
                       <Reasoning

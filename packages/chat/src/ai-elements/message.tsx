@@ -32,17 +32,21 @@ import { Streamdown } from "streamdown";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
+  /** Optional avatar rendered to the left of the message (e.g., channel logo). */
+  avatar?: React.ReactNode;
 };
 
-export const Message = ({ className, from, ...props }: MessageProps) => (
+export const Message = ({ className, from, avatar, ...props }: MessageProps) => (
   <div
     className={cn(
-      "group flex w-full flex-col gap-2",
+      "group flex w-full gap-2",
       from === "user" ? "is-user ml-auto max-w-[70%] justify-end" : "is-assistant",
       className
     )}
-    {...props}
-  />
+  >
+    {avatar && <div className="shrink-0 pt-1">{avatar}</div>}
+    <div className="flex flex-col gap-2 min-w-0 flex-1" {...props} />
+  </div>
 );
 
 export type MessageContentProps = HTMLAttributes<HTMLDivElement>;

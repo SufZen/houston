@@ -17,6 +17,12 @@ pub trait Channel: Send + Sync {
     /// Send a text message to a specific channel or chat.
     async fn send_message(&self, channel_id: &str, text: &str) -> anyhow::Result<()>;
 
+    /// Show a typing/activity indicator in the chat. No-op by default.
+    /// Platforms that support it (Telegram) override this.
+    async fn send_typing(&self, _channel_id: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     /// Get the current connection status.
     fn status(&self) -> ChannelStatus;
 
