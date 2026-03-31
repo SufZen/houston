@@ -20,6 +20,12 @@ import {
   REASONING_PROPS,
   PROMPT_INPUT_PROPS,
 } from "./chat-panel-data";
+import {
+  CHANNEL_AVATAR_USAGE_CODE,
+  MESSAGE_AVATAR_CODE,
+  MERGE_FEED_CODE,
+  CHANNEL_AVATAR_PROPS,
+} from "./channel-avatar-data";
 
 export function ChatPanelPage() {
   return (
@@ -108,6 +114,53 @@ export function ChatPanelPage() {
         props={PROMPT_INPUT_PROPS}
         code={PROMPT_INPUT_CODE}
       />
+
+      <hr className="border-border" />
+
+      {/* Channel Avatars */}
+      <div>
+        <h2 className="text-sm font-semibold mb-1">ChannelAvatar</h2>
+        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+          Branded avatar badge for multi-channel messages. Shows the platform logo
+          on the user message bubble when messages come from Telegram or Slack.
+          Uses <code className="text-xs bg-secondary px-1.5 py-0.5 rounded">renderMessageAvatar</code> on ChatPanel.
+        </p>
+        <div className="flex items-center gap-4 p-4 rounded-xl border border-border mb-4">
+          <div className="flex flex-col items-center gap-1.5">
+            <ChannelAvatar source="telegram" size="md" />
+            <span className="text-xs text-muted-foreground">Telegram</span>
+          </div>
+          <div className="flex flex-col items-center gap-1.5">
+            <ChannelAvatar source="slack" size="md" />
+            <span className="text-xs text-muted-foreground">Slack</span>
+          </div>
+          <div className="flex flex-col items-center gap-1.5">
+            <ChannelAvatar source="telegram" size="sm" />
+            <span className="text-xs text-muted-foreground">sm</span>
+          </div>
+          <div className="flex flex-col items-center gap-1.5">
+            <ChannelAvatar source="slack" size="sm" />
+            <span className="text-xs text-muted-foreground">sm</span>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <PropsTable props={CHANNEL_AVATAR_PROPS} />
+          <CodeBlock code={CHANNEL_AVATAR_USAGE_CODE} />
+          <CodeBlock code={MESSAGE_AVATAR_CODE} />
+        </div>
+      </div>
+
+      <hr className="border-border" />
+
+      {/* mergeFeedItem */}
+      <div>
+        <h2 className="text-sm font-semibold mb-1">mergeFeedItem</h2>
+        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+          Pure function for smart-merging streaming FeedItems into a feed array.
+          Use it in your store instead of duplicating the replacement logic.
+        </p>
+        <CodeBlock code={MERGE_FEED_CODE} />
+      </div>
 
       <hr className="border-border" />
 
