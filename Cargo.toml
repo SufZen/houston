@@ -10,6 +10,9 @@ members = [
     "crates/keel-channels",
     "crates/keel-memory",
 ]
+exclude = [
+    "create-app/template",
+]
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
