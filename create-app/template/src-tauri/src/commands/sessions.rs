@@ -3,6 +3,7 @@ use keel_tauri::chat_session::ChatSessionState;
 use keel_tauri::paths::expand_tilde;
 use keel_tauri::session_runner::{spawn_and_monitor, PersistOptions};
 use keel_tauri::state::AppState;
+use std::path::Path;
 use tauri::State;
 
 #[tauri::command]
@@ -20,7 +21,7 @@ pub async fn start_session(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Project not found".to_string())?;
 
-    let working_dir = expand_tilde(&project.folder_path);
+    let working_dir = expand_tilde(Path::new(&project.folder_path));
 
     // Seed workspace files on first use.
     workspace::seed_workspace(&project.folder_path);
@@ -36,17 +37,17 @@ pub async fn start_session(
     };
 
     // Resume previous session if we have one.
-    let resume_id = chat_state.get();
+    let resume_id = chat_state.get().await;
 
     let session_key = "main".to_string();
 
     let _handle = spawn_and_monitor(
         &app_handle,
-        &session_key,
-        &prompt,
-        resume_id.as_deref(),
+        session_key.clone(),
+        prompt,
+        resume_id,
         Some(working_dir),
-        system_prompt.as_deref(),
+        system_prompt,
         Some(chat_state.inner().clone()),
         Some(PersistOptions {
             db: state.db.clone(),

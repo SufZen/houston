@@ -54,7 +54,7 @@ pub async fn add_channel(
         .execute(
             "INSERT INTO channels (id, channel_type, name, status, config, created_at) \
              VALUES (?1, ?2, ?3, 'disconnected', ?4, ?5)",
-            [&id, &channel_type, &name, &config_str, &now],
+            [id.as_str(), channel_type.as_str(), name.as_str(), config_str.as_str(), now.as_str()],
         )
         .await
         .map_err(|e| e.to_string())?;
@@ -77,7 +77,7 @@ pub async fn remove_channel(
     state
         .db
         .conn()
-        .execute("DELETE FROM channels WHERE id = ?1", [&channel_id])
+        .execute("DELETE FROM channels WHERE id = ?1", [channel_id.as_str()])
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -93,7 +93,7 @@ pub async fn connect_channel(
         .conn()
         .execute(
             "UPDATE channels SET status = 'connecting' WHERE id = ?1",
-            [&channel_id],
+            [channel_id.as_str()],
         )
         .await
         .map_err(|e| e.to_string())?;
@@ -111,7 +111,7 @@ pub async fn disconnect_channel(
         .conn()
         .execute(
             "UPDATE channels SET status = 'disconnected' WHERE id = ?1",
-            [&channel_id],
+            [channel_id.as_str()],
         )
         .await
         .map_err(|e| e.to_string())?;

@@ -14,7 +14,6 @@ pub async fn create_project(
     name: String,
     folder_path: String,
 ) -> Result<Project, String> {
-    // Seed workspace files (CLAUDE.md, etc.)
     workspace::seed_workspace(&folder_path);
 
     state
@@ -28,7 +27,7 @@ pub async fn create_project(
 pub async fn delete_project(
     state: State<'_, AppState>,
     project_id: String,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     // Only removes from DB — does NOT delete the folder on disk.
     state
         .db

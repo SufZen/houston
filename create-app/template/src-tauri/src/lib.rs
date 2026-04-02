@@ -8,6 +8,7 @@ use keel_tauri::keel_memory::MemoryStore;
 use keel_tauri::keel_scheduler::Scheduler;
 use keel_tauri::state::AppState;
 use std::sync::Arc;
+use tauri::Manager;
 use tokio::sync::Mutex;
 
 pub fn run() {
@@ -22,7 +23,6 @@ pub fn run() {
                     .expect("Failed to open database")
             });
 
-            // Initialize memory store with its own connection to the same DB.
             let memory_dir = data_dir.join("memories");
             let memory_store = tauri::async_runtime::block_on(async {
                 let mem_db = libsql::Builder::new_local(&db_path)
@@ -37,13 +37,8 @@ pub fn run() {
                     .expect("Failed to initialize memory store")
             });
 
-            // Initialize event queue.
             let (_event_queue, queue_handle) = EventQueue::new();
-
-            // Initialize scheduler with queue handle.
             let scheduler = Scheduler::new(queue_handle.clone());
-
-            // Chat session state for --resume support.
             let chat_session = ChatSessionState::default();
 
             app.manage(AppState {
@@ -57,31 +52,24 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            // Projects (agents)
             commands::projects::list_projects,
             commands::projects::create_project,
-            // Issues
+            commands::projects::delete_project,
             commands::issues::list_issues,
             commands::issues::create_issue,
-            // Sessions
             commands::sessions::start_session,
             commands::sessions::load_chat_feed,
-            // Workspace
             commands::workspace::list_workspace_files,
             commands::workspace::read_workspace_file,
-            // Memory
             commands::memory::list_memories,
             commands::memory::create_memory,
             commands::memory::delete_memory,
             commands::memory::search_memories,
-            // Events
             commands::events::list_events,
-            // Scheduler
             commands::scheduler::add_heartbeat,
             commands::scheduler::remove_heartbeat,
             commands::scheduler::add_cron,
             commands::scheduler::remove_cron,
-            // Channels
             commands::channels::list_channels,
             commands::channels::add_channel,
             commands::channels::remove_channel,
