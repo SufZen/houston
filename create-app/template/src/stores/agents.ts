@@ -2,17 +2,17 @@ import { create } from "zustand";
 import { tauriProjects } from "../lib/tauri";
 import type { Project } from "../lib/types";
 
-const DEFAULT_AGENT_NAME = "{{APP_NAME_TITLE}}";
-const DOCUMENTS_BASE = "~/Documents";
+const DEFAULT_AGENT_NAME = "My Agent";
+const DOCUMENTS_BASE = "~/Documents/{{APP_NAME_TITLE}}";
 
 interface AgentState {
   agents: Project[];
   currentAgent: Project | null;
   ready: boolean;
   init: () => Promise<void>;
-  selectAgent: (id: string) => void;
-  addAgent: () => Promise<void>;
+  createAgent: (name: string) => Promise<Project>;
   deleteAgent: (id: string) => Promise<void>;
+  setCurrentAgent: (id: string) => void;
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -22,7 +22,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   init: async () => {
     const projects = await tauriProjects.list();
+
     if (projects.length === 0) {
+      // First launch: create default agent (triggers BOOTSTRAP.md).
       const agent = await tauriProjects.create(
         DEFAULT_AGENT_NAME,
         `${DOCUMENTS_BASE}/${DEFAULT_AGENT_NAME}/`,
@@ -30,36 +32,37 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       set({ agents: [agent], currentAgent: agent, ready: true });
       return;
     }
+
+    // Use first project as current if none selected.
     set({ agents: projects, currentAgent: projects[0], ready: true });
   },
 
-  selectAgent: (id) => {
-    const agent = get().agents.find((a) => a.id === id) ?? null;
-    set({ currentAgent: agent });
-  },
-
-  addAgent: async () => {
-    const name = prompt("Agent name:");
-    if (!name?.trim()) return;
-    const agent = await tauriProjects.create(
-      name.trim(),
-      `${DOCUMENTS_BASE}/${name.trim()}/`,
-    );
+  createAgent: async (name: string) => {
+    const folderPath = `${DOCUMENTS_BASE}/${name}/`;
+    const agent = await tauriProjects.create(name, folderPath);
     set((s) => ({
       agents: [...s.agents, agent],
       currentAgent: agent,
     }));
+    return agent;
   },
 
-  deleteAgent: async (id) => {
+  deleteAgent: async (id: string) => {
+    const { agents, currentAgent } = get();
+    // Prevent deleting the last agent.
+    if (agents.length <= 1) return;
+
     await tauriProjects.delete(id);
-    set((s) => {
-      const agents = s.agents.filter((a) => a.id !== id);
-      return {
-        agents,
-        currentAgent:
-          s.currentAgent?.id === id ? agents[0] ?? null : s.currentAgent,
-      };
+    const remaining = agents.filter((a) => a.id !== id);
+    set({
+      agents: remaining,
+      currentAgent:
+        currentAgent?.id === id ? remaining[0] ?? null : currentAgent,
     });
+  },
+
+  setCurrentAgent: (id: string) => {
+    const agent = get().agents.find((a) => a.id === id) ?? null;
+    set({ currentAgent: agent });
   },
 }));

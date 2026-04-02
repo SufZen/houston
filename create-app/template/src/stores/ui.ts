@@ -1,17 +1,25 @@
 import { create } from "zustand";
 
-export type ViewMode = "files" | "instructions";
+export type ViewMode =
+  | "chat"
+  | "activity"
+  | "events"
+  | "memory"
+  | "routines"
+  | "channels"
+  | "agent"
+  | "connections";
 
 interface UIState {
   viewMode: ViewMode;
-  chatOpen: boolean;
+  currentSessionId: string | null;
   setViewMode: (mode: ViewMode) => void;
-  setChatOpen: (open: boolean) => void;
+  setCurrentSessionId: (id: string | null) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  viewMode: "files",
-  chatOpen: false,
+  viewMode: "chat",
+  currentSessionId: null,
   setViewMode: (viewMode) => set({ viewMode }),
-  setChatOpen: (chatOpen) => set({ chatOpen }),
+  setCurrentSessionId: (currentSessionId) => set({ currentSessionId }),
 }));

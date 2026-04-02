@@ -1,4 +1,4 @@
-use crate::workspace;
+use crate::AgentSessionMap;
 use keel_tauri::keel_db::Project;
 use keel_tauri::state::AppState;
 use tauri::State;
@@ -14,8 +14,6 @@ pub async fn create_project(
     name: String,
     folder_path: String,
 ) -> Result<Project, String> {
-    workspace::seed_workspace(&folder_path);
-
     state
         .db
         .create_project(&name, &folder_path)
@@ -24,14 +22,32 @@ pub async fn create_project(
 }
 
 #[tauri::command]
-pub async fn delete_project(
+pub async fn update_project(
     state: State<'_, AppState>,
-    project_id: String,
+    id: String,
+    name: String,
+    folder_path: String,
 ) -> Result<bool, String> {
-    // Only removes from DB — does NOT delete the folder on disk.
     state
         .db
-        .delete_project(&project_id)
+        .update_project(&id, &name, &folder_path)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_project(
+    state: State<'_, AppState>,
+    agent_sessions: State<'_, AgentSessionMap>,
+    id: String,
+) -> Result<bool, String> {
+    let deleted = state
+        .db
+        .delete_project(&id)
+        .await
+        .map_err(|e| e.to_string())?;
+    if deleted {
+        agent_sessions.remove_agent(&id).await;
+    }
+    Ok(deleted)
 }

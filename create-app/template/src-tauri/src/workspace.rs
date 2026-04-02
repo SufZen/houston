@@ -1,8 +1,28 @@
-use keel_tauri::paths::expand_tilde;
-use keel_tauri::workspace::seed_file;
+use keel_tauri::workspace as kw;
 use std::path::Path;
 
-const CLAUDE_MD_TEMPLATE: &str = r#"# {{APP_NAME_TITLE}} Agent
+pub fn seed_workspace(dir: &Path) -> Result<(), String> {
+    kw::seed_file(dir, "CLAUDE.md", CLAUDE_MD)?;
+    Ok(())
+}
+
+pub fn build_system_prompt(dir: &Path) -> String {
+    kw::build_system_prompt(dir, BASE_SYSTEM_PROMPT, None, &PROMPT_FILES)
+}
+
+pub const KNOWN_FILES: &[(&str, &str)] = &[
+    ("CLAUDE.md", "Agent instructions and behavior rules"),
+];
+
+const PROMPT_FILES: [(&str, &str); 1] = [
+    ("CLAUDE.md", "CLAUDE.md — Agent Instructions"),
+];
+
+const BASE_SYSTEM_PROMPT: &str = "\
+You are an AI assistant running inside {{APP_NAME_TITLE}}, \
+a native desktop app. Your workspace files are injected below. Follow them.";
+
+const CLAUDE_MD: &str = r#"# {{APP_NAME_TITLE}} Agent
 
 ## Role
 You are a helpful AI assistant.
@@ -12,11 +32,3 @@ You are a helpful AI assistant.
 - Ask before making destructive changes
 - Explain your reasoning when making decisions
 "#;
-
-/// Seed workspace files for a new agent. Creates the folder and writes
-/// CLAUDE.md if it doesn't already exist.
-pub fn seed_workspace(folder_path: &str) {
-    let dir = expand_tilde(Path::new(folder_path));
-    std::fs::create_dir_all(&dir).ok();
-    seed_file(&dir, "CLAUDE.md", CLAUDE_MD_TEMPLATE);
-}

@@ -1,36 +1,45 @@
-import { useKeelEvent } from "@deck-ui/core";
+import { useEffect, useRef } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { useFeedStore } from "../stores/feeds";
-import type { FeedItem } from "@deck-ui/chat";
+import { useUIStore } from "../stores/ui";
+import type { KeelEvent } from "../lib/types";
 
-interface KeelEventPayload {
-  FeedItem?: { session_key: string; item: FeedItem };
-  SessionStatus?: { session_key: string; status: string; error?: string };
-  Toast?: { message: string; variant: string };
-  [key: string]: unknown;
-}
-
-/**
- * Subscribe to keel-event from the Rust backend.
- * Dispatches feed items to the feed store.
- * Add more handlers as you add features (kanban, events, memory, etc.).
- */
 export function useSessionEvents() {
   const pushFeedItem = useFeedStore((s) => s.pushFeedItem);
+  const handlerRef = useRef(pushFeedItem);
+  handlerRef.current = pushFeedItem;
 
-  useKeelEvent<KeelEventPayload>("keel-event", (payload) => {
-    if (payload.FeedItem) {
-      pushFeedItem(payload.FeedItem.session_key, payload.FeedItem.item);
-    }
+  useEffect(() => {
+    const unlisten = listen<KeelEvent>("keel-event", (event) => {
+      const payload = event.payload;
 
-    if (payload.SessionStatus) {
-      const { session_key, status, error } = payload.SessionStatus;
-      if (status === "error" && error) {
-        console.error(`[session:${session_key}]`, error);
+      switch (payload.type) {
+        case "FeedItem": {
+          const activeId = useUIStore.getState().currentSessionId;
+          const isDesktopDupe =
+            payload.data.session_key === activeId &&
+            payload.data.item.feed_type === "user_message";
+          if (!isDesktopDupe) {
+            handlerRef.current("main", payload.data.item);
+          }
+          break;
+        }
+        case "SessionStatus":
+          if (payload.data.status === "error" && payload.data.error) {
+            handlerRef.current("main", {
+              feed_type: "system_message",
+              data: `Session error: ${payload.data.error}`,
+            });
+          }
+          break;
+        case "Toast":
+          console.log(`[toast:${payload.data.variant}]`, payload.data.message);
+          break;
       }
-    }
+    });
 
-    if (payload.Toast) {
-      console.log(`[toast:${payload.Toast.variant}]`, payload.Toast.message);
-    }
-  });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []); // stable — no deps, uses refs
 }

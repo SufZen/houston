@@ -10,7 +10,7 @@ interface IssueState {
   updateIssueStatus: (issueId: string, status: string) => void;
 }
 
-export const useIssueStore = create<IssueState>((set, get) => ({
+export const useIssueStore = create<IssueState>((set) => ({
   issues: [],
   loading: false,
 

@@ -12,13 +12,15 @@ interface FeedState {
 export const useFeedStore = create<FeedState>((set) => ({
   items: {},
 
-  pushFeedItem: (sessionKey, item) =>
-    set((s) => ({
+  pushFeedItem: (sessionKey, item) => {
+    console.log("[feed:push]", sessionKey, item.feed_type, item);
+    return set((s) => ({
       items: {
         ...s.items,
         [sessionKey]: mergeFeedItem(s.items[sessionKey] ?? [], item),
       },
-    })),
+    }));
+  },
 
   setFeed: (sessionKey, items) =>
     set((s) => ({
@@ -27,8 +29,7 @@ export const useFeedStore = create<FeedState>((set) => ({
 
   clearFeed: (sessionKey) =>
     set((s) => {
-      const next = { ...s.items };
-      delete next[sessionKey];
-      return { items: next };
+      const { [sessionKey]: _, ...rest } = s.items;
+      return { items: rest };
     }),
 }));

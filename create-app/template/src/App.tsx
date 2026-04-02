@@ -1,40 +1,40 @@
-import { useCallback, useEffect, useState } from "react";
-import { AppSidebar, TabBar, SplitView } from "@deck-ui/layout";
+import { useEffect, useCallback, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { AppSidebar, TabBar } from "@deck-ui/layout";
 import { ChatPanel } from "@deck-ui/chat";
 import type { FeedItem } from "@deck-ui/chat";
-import { FilesBrowser } from "@deck-ui/workspace";
-import { InstructionsPanel } from "@deck-ui/workspace";
-import type { FileEntry, InstructionFile } from "@deck-ui/workspace";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   Empty,
   EmptyHeader,
   EmptyTitle,
   EmptyDescription,
 } from "@deck-ui/core";
-import { MessageSquare, Settings, Trash2 } from "lucide-react";
-import { useUIStore, type ViewMode } from "./stores/ui";
+import { Bot } from "lucide-react";
 import { useAgentStore } from "./stores/agents";
 import { useFeedStore } from "./stores/feeds";
 import { useSessionEvents } from "./hooks/use-session-events";
-import { tauriSessions, tauriWorkspace } from "./lib/tauri";
-import type { WorkspaceFileInfo } from "./lib/tauri";
+import { tauriSessions } from "./lib/tauri";
+import { FilesView } from "./components/files-view";
 
-const TABS = [
+type TabId = "chat" | "files";
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "chat", label: "Chat" },
   { id: "files", label: "Files" },
-  { id: "instructions", label: "Instructions" },
 ];
 
-const MAIN_FEED_KEY = "main";
+const MAIN_KEY = "main";
 
 export function App() {
-  const { viewMode, setViewMode, chatOpen, setChatOpen } = useUIStore();
-  const { agents, currentAgent, ready, init, selectAgent, addAgent, deleteAgent } =
+  const { agents, currentAgent, init, createAgent, deleteAgent, setCurrentAgent } =
     useAgentStore();
-  const feedItems = useFeedStore((s) => s.items);
+  const mainFeed = useFeedStore((s) => s.items[MAIN_KEY]);
+  const pushFeedItem = useFeedStore((s) => s.pushFeedItem);
+  const setFeed = useFeedStore((s) => s.setFeed);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>("chat");
+  const [fileRefreshKey, setFileRefreshKey] = useState(0);
+  const sendingRef = useRef(false);
 
   useSessionEvents();
 
@@ -42,152 +42,122 @@ export function App() {
     init();
   }, [init]);
 
+  useEffect(() => {
+    if (currentAgent) {
+      tauriSessions.ensureWorkspace(currentAgent.id).catch(console.error);
+      tauriSessions.loadFeed(currentAgent.id).then((rows) => {
+        if (rows.length > 0) {
+          setFeed(MAIN_KEY, rows as FeedItem[]);
+        }
+      });
+    }
+  }, [currentAgent, setFeed]);
+
+  // Auto-refresh file list when a session completes
+  useEffect(() => {
+    const unlisten = listen<{ type: string; data: { status?: string } }>(
+      "keel-event",
+      (event) => {
+        const payload = event.payload;
+        if (payload.type === "SessionStatus" && payload.data.status === "completed") {
+          setFileRefreshKey((k) => k + 1);
+        }
+      },
+    );
+    return () => { unlisten.then((fn) => fn()); };
+  }, []);
+
   const handleSend = useCallback(
     async (text: string) => {
-      if (!currentAgent) return;
+      if (!currentAgent || sendingRef.current) return;
+      sendingRef.current = true;
+      setIsLoading(true);
+
+      pushFeedItem(MAIN_KEY, { feed_type: "user_message", data: text });
+
       try {
         await tauriSessions.start(currentAgent.id, text);
-      } catch (e) {
-        console.error("Failed to start session:", e);
+      } catch (err) {
+        pushFeedItem(MAIN_KEY, {
+          feed_type: "system_message",
+          data: `Failed to start session: ${err}`,
+        });
+      } finally {
+        setIsLoading(false);
+        sendingRef.current = false;
       }
     },
-    [currentAgent],
+    [currentAgent, pushFeedItem],
   );
 
-  if (!ready) return null;
+  const handleAddAgent = useCallback(() => {
+    const name = window.prompt("Agent name:");
+    if (name?.trim()) {
+      createAgent(name.trim());
+    }
+  }, [createAgent]);
 
-  const chatButton = (
-    <button
-      onClick={() => setChatOpen(!chatOpen)}
-      className="inline-flex items-center gap-1.5 rounded-full h-9 px-3 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-    >
-      <MessageSquare className="size-4" />
-      Chat
-    </button>
-  );
-
-  const settingsMenu = (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center justify-center size-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-          <Settings className="size-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem
-          onClick={() => currentAgent && deleteAgent(currentAgent.id)}
-          className="text-destructive focus:text-destructive"
-        >
-          <Trash2 className="size-4 mr-2" />
-          Delete Agent
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
-  const mainContent = (
-    <div className="flex flex-col flex-1 min-h-0">
-      <TabBar
-        title={currentAgent?.name ?? "No agent"}
-        tabs={TABS}
-        activeTab={viewMode}
-        onTabChange={(id) => setViewMode(id as ViewMode)}
-        actions={
-          <div className="flex items-center gap-1">
-            {settingsMenu}
-            {chatButton}
-          </div>
-        }
-      />
-      <div className="flex-1 min-h-0 overflow-auto">
-        {viewMode === "files" && <FilesTab />}
-        {viewMode === "instructions" && <InstructionsTab />}
+  if (!currentAgent) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background text-foreground">
+        <p className="text-muted-foreground text-sm">Starting...</p>
       </div>
-    </div>
-  );
-
-  const chatPanel = (
-    <ChatPanel
-      sessionKey={MAIN_FEED_KEY}
-      feedItems={feedItems[MAIN_FEED_KEY] ?? []}
-      isLoading={false}
-      onSend={handleSend}
-      placeholder="Ask your agent anything..."
-      emptyState={
-        <Empty className="border-0">
-          <EmptyHeader>
-            <EmptyTitle>Start a conversation</EmptyTitle>
-            <EmptyDescription>
-              Type a message to talk to your agent.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      }
-    />
-  );
+    );
+  }
 
   return (
     <div className="h-screen flex bg-background text-foreground">
       <AppSidebar
-        logo={<span className="text-sm font-semibold">{{APP_NAME_TITLE}}</span>}
+        logo={
+          <div className="flex items-center gap-2">
+            <div className="size-7 rounded-lg bg-primary flex items-center justify-center">
+              <Bot className="size-4 text-primary-foreground" strokeWidth={2} />
+            </div>
+            <span className="text-sm font-semibold">{{APP_NAME_TITLE}}</span>
+          </div>
+        }
         items={agents.map((a) => ({ id: a.id, name: a.name }))}
-        selectedId={currentAgent?.id}
-        onSelect={selectAgent}
-        onAdd={addAgent}
+        selectedId={currentAgent.id}
+        onSelect={setCurrentAgent}
+        onAdd={handleAddAgent}
+        onDelete={deleteAgent}
         sectionLabel="Your agents"
       >
-        {chatOpen ? (
-          <SplitView left={mainContent} right={chatPanel} />
-        ) : (
-          <div className="flex-1 flex flex-col min-h-0">{mainContent}</div>
-        )}
+        <div className="flex-1 flex flex-col min-h-0">
+          <TabBar
+            title={currentAgent.name}
+            tabs={TABS}
+            activeTab={activeTab}
+            onTabChange={(id) => setActiveTab(id as TabId)}
+          />
+          <div className="flex-1 min-h-0">
+            {activeTab === "chat" && (
+              <div className="h-full flex flex-col max-w-3xl mx-auto">
+                <ChatPanel
+                  sessionKey={MAIN_KEY}
+                  feedItems={mainFeed ?? []}
+                  isLoading={isLoading}
+                  onSend={handleSend}
+                  placeholder="Ask your agent anything..."
+                  emptyState={
+                    <Empty className="border-0">
+                      <EmptyHeader>
+                        <EmptyTitle>Start a conversation</EmptyTitle>
+                        <EmptyDescription>
+                          Type a message to talk to your agent.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  }
+                />
+              </div>
+            )}
+            {activeTab === "files" && (
+              <FilesView key={`files-${fileRefreshKey}`} />
+            )}
+          </div>
+        </div>
       </AppSidebar>
     </div>
-  );
-}
-
-function FilesTab() {
-  const currentAgent = useAgentStore((s) => s.currentAgent);
-  // TODO: Wire to tauriWorkspace or a file listing command
-  // For now, show empty state
-  return (
-    <FilesBrowser
-      files={[]}
-      emptyTitle="Your work shows up here"
-      emptyDescription="When your agent creates files, they'll appear here for you to open and review."
-    />
-  );
-}
-
-function InstructionsTab() {
-  const currentAgent = useAgentStore((s) => s.currentAgent);
-  const [files, setFiles] = useState<InstructionFile[]>([]);
-
-  useEffect(() => {
-    if (!currentAgent) return;
-    tauriWorkspace.listFiles(currentAgent.id).then(async (infos) => {
-      const loaded: InstructionFile[] = [];
-      for (const info of infos.filter((f: WorkspaceFileInfo) => f.exists)) {
-        try {
-          const content = await tauriWorkspace.readFile(currentAgent.id, info.name);
-          loaded.push({ name: info.name, label: info.name, content });
-        } catch {
-          /* skip unreadable files */
-        }
-      }
-      setFiles(loaded);
-    });
-  }, [currentAgent]);
-
-  return (
-    <InstructionsPanel
-      files={files}
-      onSave={async (name, content) => {
-        // TODO: Wire to a write_workspace_file Tauri command
-        console.log("Save:", name, content.length, "chars");
-      }}
-      emptyTitle="No instructions yet"
-      emptyDescription="Add a CLAUDE.md to this agent's workspace to configure how it behaves."
-    />
   );
 }
