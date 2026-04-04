@@ -3,8 +3,9 @@
  * Column headers with sort, file/folder tree, status bar, drag-and-drop.
  */
 import { useCallback, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { cn, Button } from "@deck-ui/core"
-import { FolderPlus, Upload } from "lucide-react"
+import { Upload } from "lucide-react"
 import type { FileEntry } from "./types"
 import { useDropZone } from "./drop-zone"
 import { FileRow, FolderSection, COL_GRID } from "./file-row"
@@ -45,6 +46,7 @@ export function FilesBrowser({
   }, [onSelect])
 
   const [creatingFolder, setCreatingFolder] = useState(false)
+  const [bgMenu, setBgMenu] = useState<{ x: number; y: number } | null>(null)
   const [folderDropTarget, setFolderDropTarget] = useState<string | null>(null)
   const folderTargetRef = useRef<string | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>("name")
@@ -98,7 +100,7 @@ export function FilesBrowser({
 
   return (
     <div
-      className="relative flex-1 flex flex-col min-h-0 overflow-hidden bg-white border border-[#e0e0e0] rounded-xl m-4"
+      className="relative flex flex-col overflow-hidden bg-white border border-[#e0e0e0] rounded-xl m-4 h-[calc(100%-2rem)]"
       {...(onFilesDropped || onMove ? dragHandlers : {})}
     >
       <div className="h-[24px] shrink-0 border-b border-[#e5e5e5] bg-[#fafafa] select-none flex items-center rounded-t-xl">
@@ -108,22 +110,27 @@ export function FilesBrowser({
           <HeaderCell label="Size" col="size" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="justify-end" />
           <HeaderCell label="Kind" col="kind" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} last />
         </div>
-        {onCreateFolder && (
-          <button
-            onClick={() => setCreatingFolder(true)}
-            className="shrink-0 flex items-center gap-1 px-2 h-full text-[11px] font-medium text-[#6d6d6d] hover:bg-[#eaeaea] transition-colors border-l border-[#e5e5e5]"
-          >
-            <FolderPlus className="size-3" />
-            <span>New Folder</span>
-          </button>
-        )}
       </div>
 
       <div
-        className="flex-1 overflow-y-auto [&>:nth-child(even)]:bg-[#f5f5f5] [&>:nth-child(even)]:rounded-lg"
-        style={{ backgroundColor: isRootTarget ? "rgba(0,122,255,0.06)" : undefined }}
+        className="flex-1 overflow-y-auto [&>:nth-child(even)]:bg-[#f5f5f5]"
+        style={{
+          backgroundColor: isRootTarget ? "rgba(0,122,255,0.06)" : undefined,
+          backgroundImage: !isRootTarget ? "repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff 24px, #f5f5f5 24px, #f5f5f5 48px)" : undefined,
+          backgroundSize: "100% 48px",
+        }}
         onClick={(e) => {
-          if (e.target === e.currentTarget) setInternalSelected(null)
+          if (e.target === e.currentTarget) {
+            setInternalSelected(null)
+            setBgMenu(null)
+          }
+        }}
+        onContextMenu={(e) => {
+          if (e.target === e.currentTarget && onCreateFolder) {
+            e.preventDefault()
+            setInternalSelected(null)
+            setBgMenu({ x: e.clientX, y: e.clientY })
+          }
         }}
       >
         {loading ? (
@@ -160,10 +167,39 @@ export function FilesBrowser({
         )}
       </div>
 
-      <div className="h-[24px] shrink-0 border-t border-[#e5e5e5] bg-[#fafafa] flex items-center justify-center text-[11px] text-[#6d6d6d] rounded-b-xl">
-        {files.length} item{files.length !== 1 ? "s" : ""}
-      </div>
+      {bgMenu && (
+        <BgContextMenu
+          position={bgMenu}
+          onNewFolder={() => { setCreatingFolder(true); setBgMenu(null) }}
+          onClose={() => setBgMenu(null)}
+        />
+      )}
     </div>
+  )
+}
+
+function BgContextMenu({ position, onNewFolder, onClose }: {
+  position: { x: number; y: number }
+  onNewFolder: () => void
+  onClose: () => void
+}) {
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-50" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
+      <div
+        className="fixed z-50 bg-white/95 backdrop-blur-xl border border-black/10 rounded-lg shadow-lg py-1 min-w-[160px]"
+        style={{ left: position.x, top: position.y }}
+      >
+        <button
+          onClick={onNewFolder}
+          className="w-full text-left px-3 py-1.5 text-[13px] hover:bg-[#2068d0] hover:text-white rounded-md mx-0.5"
+          style={{ width: "calc(100% - 4px)" }}
+        >
+          New Folder
+        </button>
+      </div>
+    </>,
+    document.body,
   )
 }
 
