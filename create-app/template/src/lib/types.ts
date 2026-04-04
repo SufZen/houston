@@ -26,18 +26,10 @@ export interface FileEntry {
   size: number;
 }
 
-export interface MemoryEntry {
-  index: number;
-  text: string;
-}
-
-export interface MemorySnapshot {
-  agent_entries: MemoryEntry[];
-  agent_chars: number;
-  agent_limit: number;
-  user_entries: MemoryEntry[];
-  user_chars: number;
-  user_limit: number;
+export interface LearningsData {
+  entries: { index: number; text: string }[];
+  chars: number;
+  limit: number;
 }
 
 /** Events emitted from the Rust backend via keel-tauri */

@@ -17,10 +17,10 @@ pub fn build_system_prompt(dir: &Path) -> String {
         keel_tauri::self_improvement::SELF_IMPROVEMENT_GUIDANCE.to_string(),
     );
 
-    // 3. Memory snapshot
+    // 3. Learnings snapshot
     let memory_dir = dir.join(".keel/memory");
-    let config = keel_memory::MemoryConfig::default();
-    if let Ok(prompt) = keel_memory::build_memory_prompt(&memory_dir, &config) {
+    let config = keel_memory::LearningsConfig::default();
+    if let Ok(prompt) = keel_memory::build_learnings_prompt(&memory_dir, &config) {
         if !prompt.is_empty() {
             parts.push(prompt);
         }

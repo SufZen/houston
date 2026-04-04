@@ -1,8 +1,8 @@
-//! keel-memory — Character-bounded persistent memory for AI agents.
+//! keel-memory — Character-bounded persistent learnings for AI agents.
 //!
-//! Two markdown files in `.keel/memory/`:
-//! - **MEMORY.md** — agent's personal notes (environment facts, tool quirks, lessons learned)
-//! - **USER.md** — user profile (preferences, role, communication style)
+//! A single markdown file in `.keel/memory/`:
+//! - **LEARNINGS.md** — everything the agent has learned (user preferences, environment facts,
+//!   tool behaviors, project conventions, workarounds, lessons)
 //!
 //! Entries are delimited by `§` (section sign). The character limit forces curation —
 //! when full, the agent must replace stale entries to make room.
@@ -21,82 +21,62 @@ use entries::{
 };
 
 pub const ENTRY_DELIMITER: &str = "\u{00a7}";
-pub const DEFAULT_MEMORY_LIMIT: usize = 2_200;
-pub const DEFAULT_USER_LIMIT: usize = 1_375;
+pub const DEFAULT_LEARNINGS_LIMIT: usize = 3_500;
 
-/// Load a frozen snapshot of both memory files for system prompt injection.
-pub fn load_snapshot(
+/// Load a snapshot of the learnings file for system prompt injection and UI display.
+pub fn load_learnings(
     memory_dir: &Path,
-    config: &MemoryConfig,
-) -> Result<MemorySnapshot, MemoryError> {
-    let agent_content = read_file_or_empty(memory_dir, MemoryTarget::Agent)?;
-    let user_content = read_file_or_empty(memory_dir, MemoryTarget::User)?;
+    config: &LearningsConfig,
+) -> Result<LearningsData, MemoryError> {
+    let content = read_file_or_empty(memory_dir)?;
+    let strings = parse_entries(&content);
+    let chars = char_count(&strings);
 
-    let agent_strings = parse_entries(&agent_content);
-    let user_strings = parse_entries(&user_content);
-
-    let agent_chars = char_count(&agent_strings);
-    let user_chars = char_count(&user_strings);
-
-    let agent_entries = agent_strings
+    let entries = strings
         .into_iter()
         .enumerate()
-        .map(|(i, text)| MemoryEntry { index: i, text })
+        .map(|(i, text)| LearningEntry { index: i, text })
         .collect();
 
-    let user_entries = user_strings
-        .into_iter()
-        .enumerate()
-        .map(|(i, text)| MemoryEntry { index: i, text })
-        .collect();
-
-    Ok(MemorySnapshot {
-        agent_entries,
-        agent_chars,
-        agent_limit: config.memory_limit,
-        user_entries,
-        user_chars,
-        user_limit: config.user_limit,
+    Ok(LearningsData {
+        entries,
+        chars,
+        limit: config.limit,
     })
 }
 
-/// List entries from a specific target file.
-pub fn list_entries(
-    memory_dir: &Path,
-    target: MemoryTarget,
-) -> Result<Vec<MemoryEntry>, MemoryError> {
-    let content = read_file_or_empty(memory_dir, target)?;
+/// List all learning entries.
+pub fn list_entries(memory_dir: &Path) -> Result<Vec<LearningEntry>, MemoryError> {
+    let content = read_file_or_empty(memory_dir)?;
     let strings = parse_entries(&content);
     Ok(strings
         .into_iter()
         .enumerate()
-        .map(|(i, text)| MemoryEntry { index: i, text })
+        .map(|(i, text)| LearningEntry { index: i, text })
         .collect())
 }
 
-/// Add an entry to a target file. Returns error if it would exceed the limit.
+/// Add a learning entry. Returns error if it would exceed the limit.
 pub fn add_entry(
     memory_dir: &Path,
-    target: MemoryTarget,
     text: &str,
-    config: &MemoryConfig,
+    config: &LearningsConfig,
 ) -> Result<(), MemoryError> {
-    let content = read_file_or_empty(memory_dir, target)?;
+    let content = read_file_or_empty(memory_dir)?;
     let mut entries = parse_entries(&content);
-    check_limit(target, &entries, text, config)?;
+    check_limit(&entries, text, config)?;
     entries.push(text.trim().to_string());
-    write_entries(memory_dir, target, &entries)
+    write_entries(memory_dir, &entries)
 }
 
-/// Replace an entry by index. Returns error if the new text would exceed the limit.
+/// Replace a learning entry by index. Returns error if the new text would exceed the limit.
 pub fn replace_entry(
     memory_dir: &Path,
-    target: MemoryTarget,
     index: usize,
     new_text: &str,
-    config: &MemoryConfig,
+    config: &LearningsConfig,
 ) -> Result<(), MemoryError> {
-    let content = read_file_or_empty(memory_dir, target)?;
+    let content = read_file_or_empty(memory_dir)?;
     let mut entries = parse_entries(&content);
 
     if index >= entries.len() {
@@ -106,18 +86,14 @@ pub fn replace_entry(
         });
     }
 
-    check_limit_for_replace(target, &entries, index, new_text, config)?;
+    check_limit_for_replace(&entries, index, new_text, config)?;
     entries[index] = new_text.trim().to_string();
-    write_entries(memory_dir, target, &entries)
+    write_entries(memory_dir, &entries)
 }
 
-/// Remove an entry by index.
-pub fn remove_entry(
-    memory_dir: &Path,
-    target: MemoryTarget,
-    index: usize,
-) -> Result<(), MemoryError> {
-    let content = read_file_or_empty(memory_dir, target)?;
+/// Remove a learning entry by index.
+pub fn remove_entry(memory_dir: &Path, index: usize) -> Result<(), MemoryError> {
+    let content = read_file_or_empty(memory_dir)?;
     let mut entries = parse_entries(&content);
 
     if index >= entries.len() {
@@ -128,15 +104,15 @@ pub fn remove_entry(
     }
 
     entries.remove(index);
-    write_entries(memory_dir, target, &entries)
+    write_entries(memory_dir, &entries)
 }
 
-/// Build formatted memory block for system prompt injection.
-pub fn build_memory_prompt(
+/// Build formatted learnings block for system prompt injection.
+pub fn build_learnings_prompt(
     memory_dir: &Path,
-    config: &MemoryConfig,
+    config: &LearningsConfig,
 ) -> Result<String, MemoryError> {
-    prompt::build_memory_prompt(memory_dir, config)
+    prompt::build_learnings_prompt(memory_dir, config)
 }
 
 #[cfg(test)]
@@ -155,11 +131,11 @@ mod tests {
     fn add_entry_creates_dir_and_file() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
+        let config = LearningsConfig::default();
 
-        add_entry(&dir, MemoryTarget::Agent, "First note", &config).unwrap();
+        add_entry(&dir, "First note", &config).unwrap();
 
-        let content = std::fs::read_to_string(dir.join("MEMORY.md")).unwrap();
+        let content = std::fs::read_to_string(dir.join("LEARNINGS.md")).unwrap();
         assert_eq!(content, "First note");
     }
 
@@ -167,12 +143,12 @@ mod tests {
     fn add_multiple_entries() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
+        let config = LearningsConfig::default();
 
-        add_entry(&dir, MemoryTarget::Agent, "Note 1", &config).unwrap();
-        add_entry(&dir, MemoryTarget::Agent, "Note 2", &config).unwrap();
+        add_entry(&dir, "Note 1", &config).unwrap();
+        add_entry(&dir, "Note 2", &config).unwrap();
 
-        let entries = list_entries(&dir, MemoryTarget::Agent).unwrap();
+        let entries = list_entries(&dir).unwrap();
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].text, "Note 1");
         assert_eq!(entries[0].index, 0);
@@ -184,16 +160,12 @@ mod tests {
     fn add_entry_limit_exceeded() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig {
-            memory_limit: 20,
-            user_limit: 20,
-        };
+        let config = LearningsConfig { limit: 20 };
 
-        add_entry(&dir, MemoryTarget::Agent, "Short", &config).unwrap();
+        add_entry(&dir, "Short", &config).unwrap();
 
         let result = add_entry(
             &dir,
-            MemoryTarget::Agent,
             "This is a much longer entry that will exceed the limit",
             &config,
         );
@@ -201,7 +173,7 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("MEMORY"));
+        assert!(msg.contains("LEARNINGS"));
         assert!(msg.contains("capacity"));
         assert!(msg.contains("replace_entry"));
     }
@@ -210,14 +182,14 @@ mod tests {
     fn replace_entry_success() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
+        let config = LearningsConfig::default();
 
-        add_entry(&dir, MemoryTarget::Agent, "Old note", &config).unwrap();
-        add_entry(&dir, MemoryTarget::Agent, "Keep this", &config).unwrap();
+        add_entry(&dir, "Old note", &config).unwrap();
+        add_entry(&dir, "Keep this", &config).unwrap();
 
-        replace_entry(&dir, MemoryTarget::Agent, 0, "New note", &config).unwrap();
+        replace_entry(&dir, 0, "New note", &config).unwrap();
 
-        let entries = list_entries(&dir, MemoryTarget::Agent).unwrap();
+        let entries = list_entries(&dir).unwrap();
         assert_eq!(entries[0].text, "New note");
         assert_eq!(entries[1].text, "Keep this");
     }
@@ -226,11 +198,11 @@ mod tests {
     fn replace_entry_index_out_of_range() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
+        let config = LearningsConfig::default();
 
-        add_entry(&dir, MemoryTarget::Agent, "Only entry", &config).unwrap();
+        add_entry(&dir, "Only entry", &config).unwrap();
 
-        let result = replace_entry(&dir, MemoryTarget::Agent, 5, "New text", &config);
+        let result = replace_entry(&dir, 5, "New text", &config);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(msg.contains("index 5"));
@@ -241,16 +213,12 @@ mod tests {
     fn replace_entry_limit_exceeded() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig {
-            memory_limit: 30,
-            user_limit: 30,
-        };
+        let config = LearningsConfig { limit: 30 };
 
-        add_entry(&dir, MemoryTarget::Agent, "Short", &config).unwrap();
+        add_entry(&dir, "Short", &config).unwrap();
 
         let result = replace_entry(
             &dir,
-            MemoryTarget::Agent,
             0,
             "This replacement is way too long for the tiny limit we set",
             &config,
@@ -262,15 +230,15 @@ mod tests {
     fn remove_entry_success() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
+        let config = LearningsConfig::default();
 
-        add_entry(&dir, MemoryTarget::Agent, "First", &config).unwrap();
-        add_entry(&dir, MemoryTarget::Agent, "Second", &config).unwrap();
-        add_entry(&dir, MemoryTarget::Agent, "Third", &config).unwrap();
+        add_entry(&dir, "First", &config).unwrap();
+        add_entry(&dir, "Second", &config).unwrap();
+        add_entry(&dir, "Third", &config).unwrap();
 
-        remove_entry(&dir, MemoryTarget::Agent, 1).unwrap();
+        remove_entry(&dir, 1).unwrap();
 
-        let entries = list_entries(&dir, MemoryTarget::Agent).unwrap();
+        let entries = list_entries(&dir).unwrap();
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].text, "First");
         assert_eq!(entries[1].text, "Third");
@@ -280,11 +248,11 @@ mod tests {
     fn remove_entry_index_out_of_range() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
+        let config = LearningsConfig::default();
 
-        add_entry(&dir, MemoryTarget::Agent, "Only entry", &config).unwrap();
+        add_entry(&dir, "Only entry", &config).unwrap();
 
-        let result = remove_entry(&dir, MemoryTarget::Agent, 3);
+        let result = remove_entry(&dir, 3);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(msg.contains("index 3"));
@@ -295,7 +263,7 @@ mod tests {
         let base = setup_dir();
         let dir = memory_dir(&base);
 
-        let entries = list_entries(&dir, MemoryTarget::Agent).unwrap();
+        let entries = list_entries(&dir).unwrap();
         assert!(entries.is_empty());
     }
 
@@ -304,98 +272,61 @@ mod tests {
         let base = setup_dir();
         let dir = base.path().join("nonexistent").join("memory");
 
-        let entries = list_entries(&dir, MemoryTarget::User).unwrap();
+        let entries = list_entries(&dir).unwrap();
         assert!(entries.is_empty());
     }
 
     #[test]
-    fn load_snapshot_missing_files() {
+    fn load_learnings_missing_files() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
+        let config = LearningsConfig::default();
 
-        let snapshot = load_snapshot(&dir, &config).unwrap();
-        assert!(snapshot.agent_entries.is_empty());
-        assert!(snapshot.user_entries.is_empty());
-        assert_eq!(snapshot.agent_chars, 0);
-        assert_eq!(snapshot.user_chars, 0);
-        assert_eq!(snapshot.agent_limit, DEFAULT_MEMORY_LIMIT);
-        assert_eq!(snapshot.user_limit, DEFAULT_USER_LIMIT);
+        let data = load_learnings(&dir, &config).unwrap();
+        assert!(data.entries.is_empty());
+        assert_eq!(data.chars, 0);
+        assert_eq!(data.limit, DEFAULT_LEARNINGS_LIMIT);
     }
 
     #[test]
-    fn load_snapshot_with_data() {
+    fn load_learnings_with_data() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
+        let config = LearningsConfig::default();
 
-        add_entry(&dir, MemoryTarget::Agent, "Agent note 1", &config).unwrap();
-        add_entry(&dir, MemoryTarget::Agent, "Agent note 2", &config).unwrap();
-        add_entry(&dir, MemoryTarget::User, "User pref 1", &config).unwrap();
+        add_entry(&dir, "Learning 1", &config).unwrap();
+        add_entry(&dir, "Learning 2", &config).unwrap();
+        add_entry(&dir, "User pref 1", &config).unwrap();
 
-        let snapshot = load_snapshot(&dir, &config).unwrap();
-        assert_eq!(snapshot.agent_entries.len(), 2);
-        assert_eq!(snapshot.user_entries.len(), 1);
-        assert!(snapshot.agent_chars > 0);
-        assert!(snapshot.user_chars > 0);
+        let data = load_learnings(&dir, &config).unwrap();
+        assert_eq!(data.entries.len(), 3);
+        assert!(data.chars > 0);
     }
 
     #[test]
-    fn user_target_operations() {
+    fn build_learnings_prompt_integration() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
+        let config = LearningsConfig::default();
 
-        add_entry(&dir, MemoryTarget::User, "Name: James", &config).unwrap();
-        add_entry(
-            &dir,
-            MemoryTarget::User,
-            "Prefers action over discussion",
-            &config,
-        )
-        .unwrap();
+        add_entry(&dir, "Environment: macOS", &config).unwrap();
+        add_entry(&dir, "VPN required", &config).unwrap();
+        add_entry(&dir, "Name: James", &config).unwrap();
 
-        let entries = list_entries(&dir, MemoryTarget::User).unwrap();
-        assert_eq!(entries.len(), 2);
-
-        let content = std::fs::read_to_string(dir.join("USER.md")).unwrap();
-        assert!(content.contains("Name: James"));
-        assert!(content.contains("Prefers action"));
-    }
-
-    #[test]
-    fn memory_target_display() {
-        assert_eq!(MemoryTarget::Agent.filename(), "MEMORY.md");
-        assert_eq!(MemoryTarget::User.filename(), "USER.md");
-        assert_eq!(MemoryTarget::Agent.label(), "MEMORY");
-        assert_eq!(MemoryTarget::User.label(), "USER PROFILE");
-    }
-
-    #[test]
-    fn build_memory_prompt_integration() {
-        let base = setup_dir();
-        let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
-
-        add_entry(&dir, MemoryTarget::Agent, "Environment: macOS", &config).unwrap();
-        add_entry(&dir, MemoryTarget::Agent, "VPN required", &config).unwrap();
-        add_entry(&dir, MemoryTarget::User, "Name: James", &config).unwrap();
-
-        let prompt = build_memory_prompt(&dir, &config).unwrap();
-        assert!(prompt.contains("MEMORY (your personal notes)"));
-        assert!(prompt.contains("USER PROFILE"));
+        let prompt = build_learnings_prompt(&dir, &config).unwrap();
+        assert!(prompt.contains("LEARNINGS (what you've learned)"));
         assert!(prompt.contains("Environment: macOS"));
         assert!(prompt.contains("VPN required"));
         assert!(prompt.contains("Name: James"));
     }
 
     #[test]
-    fn build_memory_prompt_empty() {
+    fn build_learnings_prompt_empty() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
+        let config = LearningsConfig::default();
 
-        let prompt = build_memory_prompt(&dir, &config).unwrap();
+        let prompt = build_learnings_prompt(&dir, &config).unwrap();
         assert_eq!(prompt, "");
     }
 
@@ -403,11 +334,11 @@ mod tests {
     fn add_entry_trims_whitespace() {
         let base = setup_dir();
         let dir = memory_dir(&base);
-        let config = MemoryConfig::default();
+        let config = LearningsConfig::default();
 
-        add_entry(&dir, MemoryTarget::Agent, "  Padded entry  ", &config).unwrap();
+        add_entry(&dir, "  Padded entry  ", &config).unwrap();
 
-        let entries = list_entries(&dir, MemoryTarget::Agent).unwrap();
+        let entries = list_entries(&dir).unwrap();
         assert_eq!(entries[0].text, "Padded entry");
     }
 }

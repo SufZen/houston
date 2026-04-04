@@ -4,7 +4,7 @@ import type {
   SkillSummary,
   SkillDetail,
   FileEntry,
-  MemorySnapshot,
+  LearningsData,
 } from "./types";
 
 export const tauriAgents = {
@@ -52,25 +52,15 @@ export const tauriSkills = {
     invoke<void>("save_skill", { workspacePath, name, content }),
 };
 
-export const tauriMemory = {
+export const tauriLearnings = {
   load: (workspacePath: string) =>
-    invoke<MemorySnapshot>("load_memory", { workspacePath }),
-  addEntry: (workspacePath: string, target: string, text: string) =>
-    invoke<void>("add_memory_entry", { workspacePath, target, text }),
-  replaceEntry: (
-    workspacePath: string,
-    target: string,
-    index: number,
-    text: string,
-  ) =>
-    invoke<void>("replace_memory_entry", {
-      workspacePath,
-      target,
-      index,
-      text,
-    }),
-  removeEntry: (workspacePath: string, target: string, index: number) =>
-    invoke<void>("remove_memory_entry", { workspacePath, target, index }),
+    invoke<LearningsData>("load_learnings", { workspacePath }),
+  add: (workspacePath: string, text: string) =>
+    invoke<void>("add_learning", { workspacePath, text }),
+  replace: (workspacePath: string, index: number, text: string) =>
+    invoke<void>("replace_learning", { workspacePath, index, text }),
+  remove: (workspacePath: string, index: number) =>
+    invoke<void>("remove_learning", { workspacePath, index }),
 };
 
 export const tauriFiles = {

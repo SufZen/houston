@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type ViewMode = "chat" | "context" | "skills" | "memory" | "files";
+export type ViewMode = "chat" | "context" | "skills" | "learnings" | "files";
 
 interface UIState {
   viewMode: ViewMode;

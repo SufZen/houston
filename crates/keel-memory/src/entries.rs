@@ -1,8 +1,10 @@
 use std::path::Path;
 
-use crate::{MemoryConfig, MemoryError, MemoryTarget, ENTRY_DELIMITER};
+use crate::{LearningsConfig, MemoryError, ENTRY_DELIMITER};
 
-/// Parse a memory file into entries. Splits on "§" lines, trims whitespace, filters empty.
+const LEARNINGS_FILENAME: &str = "LEARNINGS.md";
+
+/// Parse a learnings file into entries. Splits on "§" lines, trims whitespace, filters empty.
 pub fn parse_entries(content: &str) -> Vec<String> {
     content
         .split(ENTRY_DELIMITER)
@@ -24,12 +26,9 @@ pub fn char_count(entries: &[String]) -> usize {
     serialize_entries(entries).chars().count()
 }
 
-/// Read a memory file, returning empty string if the file doesn't exist.
-pub fn read_file_or_empty(
-    memory_dir: &Path,
-    target: MemoryTarget,
-) -> Result<String, MemoryError> {
-    let path = memory_dir.join(target.filename());
+/// Read the learnings file, returning empty string if the file doesn't exist.
+pub fn read_file_or_empty(memory_dir: &Path) -> Result<String, MemoryError> {
+    let path = memory_dir.join(LEARNINGS_FILENAME);
     match std::fs::read_to_string(&path) {
         Ok(content) => Ok(content),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
@@ -37,35 +36,25 @@ pub fn read_file_or_empty(
     }
 }
 
-/// Write entries to a memory file, creating the directory if needed.
+/// Write entries to the learnings file, creating the directory if needed.
 pub fn write_entries(
     memory_dir: &Path,
-    target: MemoryTarget,
     entries: &[String],
 ) -> Result<(), MemoryError> {
     std::fs::create_dir_all(memory_dir)?;
-    let path = memory_dir.join(target.filename());
+    let path = memory_dir.join(LEARNINGS_FILENAME);
     let content = serialize_entries(entries);
     std::fs::write(&path, content)?;
     Ok(())
 }
 
-/// Get the character limit for a given target from the config.
-pub fn limit_for(target: MemoryTarget, config: &MemoryConfig) -> usize {
-    match target {
-        MemoryTarget::Agent => config.memory_limit,
-        MemoryTarget::User => config.user_limit,
-    }
-}
-
 /// Check if adding an entry would exceed the limit.
 pub fn check_limit(
-    target: MemoryTarget,
     entries: &[String],
     new_entry_text: &str,
-    config: &MemoryConfig,
+    config: &LearningsConfig,
 ) -> Result<(), MemoryError> {
-    let limit = limit_for(target, config);
+    let limit = config.limit;
     let mut proposed = entries.to_vec();
     proposed.push(new_entry_text.trim().to_string());
     let proposed_chars = char_count(&proposed);
@@ -78,7 +67,6 @@ pub fn check_limit(
             100
         };
         return Err(MemoryError::LimitExceeded {
-            target: target.label().to_string(),
             current,
             limit,
             entry_size: new_entry_text.trim().chars().count(),
@@ -90,13 +78,12 @@ pub fn check_limit(
 
 /// Check if replacing an entry would exceed the limit.
 pub fn check_limit_for_replace(
-    target: MemoryTarget,
     entries: &[String],
     index: usize,
     new_text: &str,
-    config: &MemoryConfig,
+    config: &LearningsConfig,
 ) -> Result<(), MemoryError> {
-    let limit = limit_for(target, config);
+    let limit = config.limit;
     let mut proposed = entries.to_vec();
     proposed[index] = new_text.trim().to_string();
     let proposed_chars = char_count(&proposed);
@@ -109,7 +96,6 @@ pub fn check_limit_for_replace(
             100
         };
         return Err(MemoryError::LimitExceeded {
-            target: target.label().to_string(),
             current,
             limit,
             entry_size: new_text.trim().chars().count(),

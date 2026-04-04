@@ -98,10 +98,10 @@ export function FilesBrowser({
 
   return (
     <div
-      className="relative flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-white"
+      className="relative flex-1 flex flex-col min-h-0 overflow-hidden bg-white border border-[#e0e0e0] rounded-xl m-4"
       {...(onFilesDropped || onMove ? dragHandlers : {})}
     >
-      <div className="h-[24px] shrink-0 border-b border-[#e5e5e5] bg-[#fafafa] select-none flex items-center">
+      <div className="h-[24px] shrink-0 border-b border-[#e5e5e5] bg-[#fafafa] select-none flex items-center rounded-t-xl">
         <div className="flex-1 min-w-0 items-center h-full" style={{ display: "grid", gridTemplateColumns: COL_GRID }}>
           <HeaderCell label="Name" col="name" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="pl-7" />
           <HeaderCell label="Date Modified" col="dateModified" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
@@ -160,7 +160,7 @@ export function FilesBrowser({
         )}
       </div>
 
-      <div className="h-[24px] shrink-0 border-t border-[#e5e5e5] bg-[#fafafa] flex items-center justify-center text-[11px] text-[#6d6d6d]">
+      <div className="h-[24px] shrink-0 border-t border-[#e5e5e5] bg-[#fafafa] flex items-center justify-center text-[11px] text-[#6d6d6d] rounded-b-xl">
         {files.length} item{files.length !== 1 ? "s" : ""}
       </div>
     </div>
