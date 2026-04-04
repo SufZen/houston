@@ -30,11 +30,19 @@ export interface FilesBrowserProps {
 }
 
 export function FilesBrowser({
-  files, loading, selectedPath, onSelect, onOpen, onReveal, onDelete,
+  files, loading, selectedPath: controlledSelected, onSelect, onOpen, onReveal, onDelete,
   onFilesDropped, onMove, onCreateFolder, onBrowse,
   emptyTitle = "No files yet",
   emptyDescription = "When agents create files, they\u2019ll appear here.",
 }: FilesBrowserProps) {
+  // Internal selection state — used when consumer doesn't control selection
+  const [internalSelected, setInternalSelected] = useState<string | null>(null)
+  const selectedPath = controlledSelected !== undefined ? controlledSelected : internalSelected
+  const handleSelect = useCallback((file: FileEntry) => {
+    setInternalSelected(file.path)
+    onSelect?.(file)
+  }, [onSelect])
+
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [folderDropTarget, setFolderDropTarget] = useState<string | null>(null)
   const folderTargetRef = useRef<string | null>(null)
@@ -122,7 +130,7 @@ export function FilesBrowser({
               child.kind === "folder" ? (
                 <FolderSection
                   key={child.path} node={child} depth={0}
-                  selectedPath={selectedPath} onSelect={onSelect}
+                  selectedPath={selectedPath} onSelect={handleSelect}
                   onOpen={onOpen} onReveal={onReveal} onDelete={onDelete}
                   onFilesDropped={onFilesDropped} onDragActive={onDragActive} onMove={onMove}
                 />
@@ -130,7 +138,7 @@ export function FilesBrowser({
                 <FileRow
                   key={child.entry.path} file={child.entry}
                   selected={selectedPath === child.entry.path}
-                  onSelect={onSelect} onOpen={onOpen}
+                  onSelect={handleSelect} onOpen={onOpen}
                   onReveal={onReveal} onDelete={onDelete} onMove={onMove}
                 />
               ),

@@ -1,4 +1,5 @@
 mod commands;
+mod memory_commands;
 mod skill_commands;
 mod workspace;
 
@@ -50,6 +51,10 @@ pub fn run() {
             skill_commands::create_skill,
             skill_commands::delete_skill,
             skill_commands::save_skill,
+            memory_commands::load_memory,
+            memory_commands::add_memory_entry,
+            memory_commands::replace_memory_entry,
+            memory_commands::remove_memory_entry,
             keel_tauri::workspace_commands::list_project_files,
             keel_tauri::workspace_commands::open_file,
             keel_tauri::workspace_commands::reveal_file,

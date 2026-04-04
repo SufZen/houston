@@ -7,12 +7,44 @@ pub fn seed_workspace(dir: &Path) -> Result<(), String> {
 }
 
 pub fn build_system_prompt(dir: &Path) -> String {
-    kw::build_system_prompt(dir, BASE_SYSTEM_PROMPT, None, &PROMPT_FILES)
+    let mut parts = Vec::new();
+
+    // 1. Base prompt
+    parts.push(BASE_SYSTEM_PROMPT.to_string());
+
+    // 2. Self-improvement guidance
+    parts.push(
+        keel_tauri::self_improvement::SELF_IMPROVEMENT_GUIDANCE.to_string(),
+    );
+
+    // 3. Memory snapshot
+    let memory_dir = dir.join(".keel/memory");
+    let config = keel_memory::MemoryConfig::default();
+    if let Ok(prompt) = keel_memory::build_memory_prompt(&memory_dir, &config) {
+        if !prompt.is_empty() {
+            parts.push(prompt);
+        }
+    }
+
+    // 4. Skills index
+    let skills_dir = dir.join(".keel/skills");
+    if let Ok(index) = keel_skills::build_skills_index(&skills_dir) {
+        if !index.is_empty() {
+            parts.push(index);
+        }
+    }
+
+    // 5. Workspace files (CLAUDE.md)
+    for (name, label) in &PROMPT_FILES {
+        if let Ok(content) = std::fs::read_to_string(dir.join(name)) {
+            parts.push(format!("# {label}\n\n{content}"));
+        }
+    }
+
+    parts.join("\n\n---\n\n")
 }
 
-const PROMPT_FILES: [(&str, &str); 1] = [
-    ("CLAUDE.md", "CLAUDE.md — Agent Instructions"),
-];
+const PROMPT_FILES: [(&str, &str); 1] = [("CLAUDE.md", "CLAUDE.md — Agent Instructions")];
 
 const BASE_SYSTEM_PROMPT: &str = "\
 You are an AI assistant running inside {{APP_NAME_TITLE}}, \
