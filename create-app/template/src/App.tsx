@@ -19,7 +19,7 @@ const MAIN_KEY = "main";
 
 const TABS = [
   { id: "chat", label: "Chat" },
-  { id: "claude-md", label: "CLAUDE.md" },
+  { id: "claude-md", label: "Context" },
 ];
 
 export function App() {

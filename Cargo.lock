@@ -2174,10 +2174,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "libsql",
- "serde",
- "serde_json",
  "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -2189,21 +2186,6 @@ dependencies = [
  "chrono",
  "serde",
  "serde_json",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "keel-memory"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "libsql",
- "serde",
- "serde_json",
- "tempfile",
  "tokio",
  "tracing",
  "uuid",
@@ -2240,7 +2222,6 @@ dependencies = [
  "keel-channels",
  "keel-db",
  "keel-events",
- "keel-memory",
  "keel-scheduler",
  "keel-sessions",
  "libsql",

@@ -19,25 +19,6 @@ pub enum KeelEvent {
         status: String,
         error: Option<String>,
     },
-    /// An issue's status changed on the kanban board.
-    IssueStatusChanged {
-        issue_id: String,
-        status: String,
-    },
-    /// Output files for an issue were updated.
-    IssueOutputFilesChanged {
-        issue_id: String,
-        files: Vec<String>,
-    },
-    /// An issue's title changed.
-    IssueTitleChanged {
-        issue_id: String,
-        title: String,
-    },
-    /// Issues list changed for a project (bulk refresh signal).
-    IssuesChanged {
-        project_id: String,
-    },
     /// Toast notification for the UI.
     Toast {
         message: String,
@@ -98,20 +79,6 @@ pub enum KeelEvent {
         channel_type: String,
         status: String,
         error: Option<String>,
-    },
-
-    // ----- Memory (keel-memory) -----
-
-    /// A memory was created or updated.
-    MemoryChanged {
-        memory_id: String,
-        project_id: String,
-        category: String,
-    },
-    /// A memory was deleted.
-    MemoryDeleted {
-        memory_id: String,
-        project_id: String,
     },
 
     // ----- Routines -----

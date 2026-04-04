@@ -48,13 +48,12 @@ pub struct ProjectFile {
     pub size: u64,
 }
 
-/// List all user-facing files in a project's workspace folder.
+/// List all user-facing files in a workspace folder.
 #[tauri::command]
 pub async fn list_project_files(
-    state: State<'_, AppState>,
-    project_id: String,
+    workspace_path: String,
 ) -> Result<Vec<ProjectFile>, String> {
-    let root = resolve_project_dir(&state, &project_id).await?;
+    let root = expand_tilde(&PathBuf::from(&workspace_path));
     if !root.is_dir() {
         return Ok(Vec::new());
     }
@@ -67,11 +66,10 @@ pub async fn list_project_files(
 /// Open a file with the system default application.
 #[tauri::command]
 pub async fn open_file(
-    state: State<'_, AppState>,
-    project_id: String,
+    workspace_path: String,
     relative_path: String,
 ) -> Result<(), String> {
-    let full_path = resolve_file(&state, &project_id, &relative_path).await?;
+    let full_path = resolve_file(&workspace_path, &relative_path)?;
     std::process::Command::new("open")
         .arg(&full_path)
         .spawn()
@@ -82,11 +80,10 @@ pub async fn open_file(
 /// Show a file in the OS file manager (Finder on macOS).
 #[tauri::command]
 pub async fn reveal_file(
-    state: State<'_, AppState>,
-    project_id: String,
+    workspace_path: String,
     relative_path: String,
 ) -> Result<(), String> {
-    let full_path = resolve_file(&state, &project_id, &relative_path).await?;
+    let full_path = resolve_file(&workspace_path, &relative_path)?;
     std::process::Command::new("open")
         .arg("-R")
         .arg(&full_path)
@@ -95,14 +92,13 @@ pub async fn reveal_file(
     Ok(())
 }
 
-/// Delete a file from the project workspace.
+/// Delete a file from the workspace.
 #[tauri::command]
 pub async fn delete_file(
-    state: State<'_, AppState>,
-    project_id: String,
+    workspace_path: String,
     relative_path: String,
 ) -> Result<(), String> {
-    let full_path = resolve_file(&state, &project_id, &relative_path).await?;
+    let full_path = resolve_file(&workspace_path, &relative_path)?;
     std::fs::remove_file(&full_path).map_err(|e| format!("Failed to delete: {e}"))?;
     Ok(())
 }
@@ -112,12 +108,11 @@ pub async fn delete_file(
 /// Returns the list of imported files for immediate UI refresh.
 #[tauri::command]
 pub async fn import_files(
-    state: State<'_, AppState>,
-    project_id: String,
+    workspace_path: String,
     file_paths: Vec<String>,
     target_folder: Option<String>,
 ) -> Result<Vec<ProjectFile>, String> {
-    let root = resolve_project_dir(&state, &project_id).await?;
+    let root = expand_tilde(&PathBuf::from(&workspace_path));
     let dest_dir = match &target_folder {
         Some(folder) => {
             let d = root.join(folder);
@@ -160,21 +155,19 @@ pub async fn import_files(
 /// Create a folder inside the workspace.
 #[tauri::command]
 pub async fn create_workspace_folder(
-    state: State<'_, AppState>,
-    project_id: String,
+    workspace_path: String,
     folder_name: String,
 ) -> Result<String, String> {
-    let root = resolve_project_dir(&state, &project_id).await?;
+    let root = expand_tilde(&PathBuf::from(&workspace_path));
     workspace::create_folder(&root, &folder_name)
 }
 
-/// Open the project's workspace folder in the OS file manager.
+/// Open the workspace folder in the OS file manager.
 #[tauri::command]
 pub async fn reveal_workspace(
-    state: State<'_, AppState>,
-    project_id: String,
+    workspace_path: String,
 ) -> Result<(), String> {
-    let root = resolve_project_dir(&state, &project_id).await?;
+    let root = expand_tilde(&PathBuf::from(&workspace_path));
     std::process::Command::new("open")
         .arg(&root)
         .spawn()
@@ -186,13 +179,12 @@ pub async fn reveal_workspace(
 /// Used when files come from a web file picker (no filesystem path available).
 #[tauri::command]
 pub async fn write_file_bytes(
-    state: State<'_, AppState>,
-    project_id: String,
+    workspace_path: String,
     file_name: String,
     data_base64: String,
 ) -> Result<ProjectFile, String> {
     use base64::Engine;
-    let root = resolve_project_dir(&state, &project_id).await?;
+    let root = expand_tilde(&PathBuf::from(&workspace_path));
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(&data_base64)
         .map_err(|e| format!("Invalid base64: {e}"))?;
@@ -214,34 +206,16 @@ pub async fn write_file_bytes(
 /// Read a text file from the workspace by relative path.
 #[tauri::command]
 pub async fn read_project_file(
-    state: State<'_, AppState>,
-    project_id: String,
+    workspace_path: String,
     relative_path: String,
 ) -> Result<String, String> {
-    let full_path = resolve_file(&state, &project_id, &relative_path).await?;
+    let full_path = resolve_file(&workspace_path, &relative_path)?;
     std::fs::read_to_string(&full_path)
         .map_err(|e| format!("Failed to read {relative_path}: {e}"))
 }
 
-/// Load persisted chat feed for hydrating the UI on app restart.
-/// Reads from the `chat_feed` table and returns items as JSON.
-/// Keyed by (project_id, "main") — backward compat for v1 callers.
-#[tauri::command]
-pub async fn load_chat_feed(
-    state: State<'_, AppState>,
-    project_id: String,
-) -> Result<Vec<serde_json::Value>, String> {
-    let rows = state
-        .db
-        .list_chat_feed(&project_id, "main")
-        .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(feed_rows_to_json(rows))
-}
-
 /// v2: Load persisted chat feed by claude_session_id.
-/// This is the new primary way to load conversation history.
+/// This is the primary way to load conversation history.
 #[tauri::command]
 pub async fn load_session_feed(
     state: State<'_, AppState>,
@@ -271,22 +245,11 @@ fn feed_rows_to_json(rows: Vec<keel_db::ChatFeedRow>) -> Vec<serde_json::Value> 
 
 // -- Helpers --
 
-async fn resolve_project_dir(state: &AppState, project_id: &str) -> Result<PathBuf, String> {
-    let project = state
-        .db
-        .get_project(project_id)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or("Project not found")?;
-    Ok(expand_tilde(&PathBuf::from(&project.folder_path)))
-}
-
-async fn resolve_file(
-    state: &AppState,
-    project_id: &str,
+fn resolve_file(
+    workspace_path: &str,
     relative_path: &str,
 ) -> Result<PathBuf, String> {
-    let root = resolve_project_dir(state, project_id).await?;
+    let root = expand_tilde(&PathBuf::from(workspace_path));
     let full = root.join(relative_path);
     if !full.exists() {
         return Err(format!("File not found: {relative_path}"));

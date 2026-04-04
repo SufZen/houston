@@ -82,14 +82,6 @@ export type KeelEvent =
       };
     }
   | {
-      type: "MemoryChanged";
-      data: { memory_id: string; project_id: string; category: string };
-    }
-  | {
-      type: "MemoryDeleted";
-      data: { memory_id: string; project_id: string };
-    }
-  | {
       type: "RoutineRunChanged";
       data: { routine_id: string; run_id: string; status: string };
     }

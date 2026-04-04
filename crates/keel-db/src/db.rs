@@ -87,34 +87,7 @@ impl Database {
     async fn init_tables(&self) -> Result<()> {
         self.conn
             .execute_batch(
-                "-- v1 compat: projects (DesktopClaw/Taxflow use via repo_projects.rs)
-            CREATE TABLE IF NOT EXISTS projects (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                folder_path TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-            -- v1 compat: sessions (Houston re-exports Session model)
-            CREATE TABLE IF NOT EXISTS sessions (
-                id TEXT PRIMARY KEY,
-                job_id TEXT,
-                claude_session_id TEXT,
-                status TEXT NOT NULL DEFAULT 'running',
-                prompt TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                completed_at TEXT
-            );
-            -- v1 compat: session_events (Houston re-exports SessionEvent model)
-            CREATE TABLE IF NOT EXISTS session_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT NOT NULL REFERENCES sessions(id),
-                event_type TEXT NOT NULL,
-                content TEXT NOT NULL,
-                timestamp TEXT NOT NULL
-            );
-            -- Permanent: preferences (app-level settings)
-            CREATE TABLE IF NOT EXISTS preferences (
+                "CREATE TABLE IF NOT EXISTS preferences (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );",

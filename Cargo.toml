@@ -7,7 +7,6 @@ members = [
     "crates/keel-events",
     "crates/keel-scheduler",
     "crates/keel-channels",
-    "crates/keel-memory",
 ]
 exclude = [
     "create-app/template",
@@ -28,4 +27,3 @@ keel-tauri = { version = "0.2.0", path = "crates/keel-tauri" }
 keel-events = { version = "0.1.0", path = "crates/keel-events" }
 keel-scheduler = { version = "0.1.0", path = "crates/keel-scheduler" }
 keel-channels = { version = "0.1.0", path = "crates/keel-channels" }
-keel-memory = { version = "0.1.0", path = "crates/keel-memory" }

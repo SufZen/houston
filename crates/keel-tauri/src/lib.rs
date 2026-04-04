@@ -23,4 +23,3 @@ pub use keel_sessions;
 pub use keel_events;
 pub use keel_scheduler;
 pub use keel_channels;
-pub use keel_memory;
