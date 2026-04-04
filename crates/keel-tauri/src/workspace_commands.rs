@@ -11,6 +11,8 @@
 //!     keel_tauri::workspace_commands::import_files,
 //!     keel_tauri::workspace_commands::create_workspace_folder,
 //!     keel_tauri::workspace_commands::reveal_workspace,
+//!     keel_tauri::workspace_commands::search_sessions,
+//!     keel_tauri::workspace_commands::list_recent_sessions,
 //! ])
 //! ```
 //!
@@ -212,6 +214,34 @@ pub async fn read_project_file(
     let full_path = resolve_file(&workspace_path, &relative_path)?;
     std::fs::read_to_string(&full_path)
         .map_err(|e| format!("Failed to read {relative_path}: {e}"))
+}
+
+/// Full-text search across chat sessions.
+/// Returns sessions grouped by claude_session_id with highlighted snippets.
+#[tauri::command]
+pub async fn search_sessions(
+    state: State<'_, AppState>,
+    query: String,
+    exclude_session_id: Option<String>,
+) -> Result<Vec<keel_db::SessionSearchResult>, String> {
+    state
+        .db
+        .search_sessions(&query, exclude_session_id.as_deref(), 10, 3)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// List recent chat sessions (no search). Returns metadata only.
+#[tauri::command]
+pub async fn list_recent_sessions(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<keel_db::SessionMetadata>, String> {
+    state
+        .db
+        .list_recent_sessions(limit.unwrap_or(20))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// v2: Load persisted chat feed by claude_session_id.

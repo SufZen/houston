@@ -11,7 +11,11 @@
 pub mod db;
 mod migrations;
 pub mod repo_chat_feed;
+pub mod repo_search;
 
 // Re-export key types for convenience.
 pub use db::Database;
 pub use repo_chat_feed::ChatFeedRow;
+pub use repo_search::{
+    sanitize_fts_query, SearchResult, SessionMetadata, SessionSearchResult,
+};
