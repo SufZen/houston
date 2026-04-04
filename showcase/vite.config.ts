@@ -19,6 +19,7 @@ export default defineConfig({
       "@deck-ui/connections",
       "@deck-ui/skills",
       "@deck-ui/review",
+      "@deck-ui/workspace",
     ],
   },
 });
