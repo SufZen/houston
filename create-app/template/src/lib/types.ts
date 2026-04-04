@@ -1,10 +1,6 @@
-/** Project from keel-db */
-export interface Project {
-  id: string;
+export interface Agent {
   name: string;
-  folder_path: string;
-  created_at: string;
-  updated_at: string;
+  path: string;
 }
 
 /** Events emitted from the Rust backend via keel-tauri */

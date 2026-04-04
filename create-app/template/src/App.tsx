@@ -7,57 +7,66 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from "@deck-ui/core";
+import { AppSidebar } from "@deck-ui/layout";
 import { TabBar } from "@deck-ui/layout";
-import { useWorkspaceStore } from "./stores/workspace";
+import { useAgentStore } from "./stores/agents";
 import { useFeedStore } from "./stores/feeds";
 import { useUIStore, type ViewMode } from "./stores/ui";
 import { useSessionEvents } from "./hooks/use-session-events";
-import { tauriSessions } from "./lib/tauri";
-import { ClaudeMdEditor } from "./components/claude-md-editor";
+import { tauriChat } from "./lib/tauri";
+import { ContextTab } from "./components/context-tab";
+import { SkillsTab } from "./components/skills-tab";
+import { CreateAgentDialog } from "./components/create-agent-dialog";
 
 const MAIN_KEY = "main";
 
 const TABS = [
-  { id: "chat", label: "Chat" },
-  { id: "claude-md", label: "Context" },
+  { id: "chat" as const, label: "Chat" },
+  { id: "context" as const, label: "Context" },
+  { id: "skills" as const, label: "Skills" },
 ];
 
 export function App() {
-  const { workspace, init } = useWorkspaceStore();
+  const { agents, current, ready, loadAgents, setCurrentAgent } =
+    useAgentStore();
   const mainFeed = useFeedStore((s) => s.items[MAIN_KEY]);
   const pushFeedItem = useFeedStore((s) => s.pushFeedItem);
   const setFeed = useFeedStore((s) => s.setFeed);
+  const clearFeed = useFeedStore((s) => s.clearFeed);
   const viewMode = useUIStore((s) => s.viewMode);
   const setViewMode = useUIStore((s) => s.setViewMode);
   const [isLoading, setIsLoading] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const sendingRef = useRef(false);
 
   useSessionEvents();
 
   useEffect(() => {
-    init();
-  }, [init]);
+    loadAgents();
+  }, [loadAgents]);
 
+  // Auto-show create dialog when no agents exist
   useEffect(() => {
-    if (workspace) {
-      tauriSessions.loadFeed(workspace.id).then((rows) => {
-        if (rows.length > 0) {
-          setFeed(MAIN_KEY, rows as FeedItem[]);
-        }
-      });
-    }
-  }, [workspace, setFeed]);
+    if (ready && agents.length === 0) setShowCreate(true);
+  }, [ready, agents.length]);
+
+  // Load chat history when switching agents
+  useEffect(() => {
+    if (!current) return;
+    clearFeed(MAIN_KEY);
+    tauriChat.loadHistory(current.path).then((rows) => {
+      if (rows.length > 0) setFeed(MAIN_KEY, rows as FeedItem[]);
+    });
+  }, [current, setFeed, clearFeed]);
 
   const handleSend = useCallback(
     async (text: string) => {
-      if (!workspace || sendingRef.current) return;
+      if (!current || sendingRef.current) return;
       sendingRef.current = true;
       setIsLoading(true);
-
       pushFeedItem(MAIN_KEY, { feed_type: "user_message", data: text });
-
       try {
-        await tauriSessions.start(workspace.id, text);
+        await tauriChat.send(current.path, text);
       } catch (err) {
         pushFeedItem(MAIN_KEY, {
           feed_type: "system_message",
@@ -68,10 +77,10 @@ export function App() {
         sendingRef.current = false;
       }
     },
-    [workspace, pushFeedItem],
+    [current, pushFeedItem],
   );
 
-  if (!workspace) {
+  if (!ready) {
     return (
       <div className="h-screen flex items-center justify-center bg-background text-foreground">
         <p className="text-muted-foreground text-sm">Starting...</p>
@@ -79,40 +88,95 @@ export function App() {
     );
   }
 
+  const sidebarItems = agents.map((a) => ({ id: a.path, name: a.name }));
+
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground">
-      <TabBar
-        title={"{{APP_NAME_TITLE}}"}
-        tabs={TABS}
-        activeTab={viewMode}
-        onTabChange={(id) => setViewMode(id as ViewMode)}
+    <div className="h-screen flex bg-background text-foreground">
+      <AppSidebar
+        items={sidebarItems}
+        selectedId={current?.path ?? null}
+        onSelect={(id) => {
+          const agent = agents.find((a) => a.path === id);
+          if (agent) setCurrentAgent(agent);
+        }}
+        onAdd={() => setShowCreate(true)}
+        sectionLabel="Agents"
+      >
+        <div className="flex-1 flex flex-col min-w-0">
+          <TabBar
+            title={current?.name ?? "{{APP_NAME_TITLE}}"}
+            tabs={TABS}
+            activeTab={viewMode}
+            onTabChange={(id) => setViewMode(id as ViewMode)}
+          />
+          <main className="flex-1 min-h-0">
+            {!current ? (
+              <NoAgentSelected />
+            ) : viewMode === "chat" ? (
+              <ChatView
+                feedItems={mainFeed ?? []}
+                isLoading={isLoading}
+                onSend={handleSend}
+              />
+            ) : viewMode === "context" ? (
+              <ContextTab workspacePath={current.path} />
+            ) : (
+              <SkillsTab />
+            )}
+          </main>
+        </div>
+      </AppSidebar>
+
+      {showCreate && (
+        <CreateAgentDialog onClose={() => setShowCreate(false)} />
+      )}
+    </div>
+  );
+}
+
+function ChatView({
+  feedItems,
+  isLoading,
+  onSend,
+}: {
+  feedItems: FeedItem[];
+  isLoading: boolean;
+  onSend: (text: string) => void;
+}) {
+  return (
+    <div className="h-full flex flex-col max-w-3xl mx-auto">
+      <ChatPanel
+        sessionKey={MAIN_KEY}
+        feedItems={feedItems}
+        isLoading={isLoading}
+        onSend={(text) => onSend(text)}
+        placeholder="Ask anything..."
+        emptyState={
+          <Empty className="border-0">
+            <EmptyHeader>
+              <EmptyTitle>Start a conversation</EmptyTitle>
+              <EmptyDescription>
+                Type a message to talk to your agent.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        }
       />
-      <main className="flex-1 min-h-0">
-        {viewMode === "chat" && (
-          <div className="h-full flex flex-col max-w-3xl mx-auto">
-            <ChatPanel
-              sessionKey={MAIN_KEY}
-              feedItems={mainFeed ?? []}
-              isLoading={isLoading}
-              onSend={handleSend}
-              placeholder="Ask anything..."
-              emptyState={
-                <Empty className="border-0">
-                  <EmptyHeader>
-                    <EmptyTitle>Start a conversation</EmptyTitle>
-                    <EmptyDescription>
-                      Type a message to talk to your agent.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              }
-            />
-          </div>
-        )}
-        {viewMode === "claude-md" && (
-          <ClaudeMdEditor projectId={workspace.id} />
-        )}
-      </main>
+    </div>
+  );
+}
+
+function NoAgentSelected() {
+  return (
+    <div className="h-full flex flex-col items-center justify-center">
+      <Empty className="border-0">
+        <EmptyHeader>
+          <EmptyTitle>No agent selected</EmptyTitle>
+          <EmptyDescription>
+            Create or select an agent from the sidebar.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     </div>
   );
 }

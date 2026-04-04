@@ -23,7 +23,7 @@ importers:
   packages/board:
     dependencies:
       '@deck-ui/core':
-        specifier: ^0.1.0
+        specifier: '>=0.1.0'
         version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.2)
       framer-motion:
         specifier: ^12.38.0
@@ -41,7 +41,7 @@ importers:
   packages/chat:
     dependencies:
       '@deck-ui/core':
-        specifier: ^0.1.0
+        specifier: '>=0.1.0'
         version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.2)
       '@radix-ui/react-use-controllable-state':
         specifier: ^1.2.2
@@ -95,7 +95,7 @@ importers:
   packages/connections:
     dependencies:
       '@deck-ui/core':
-        specifier: ^0.1.0
+        specifier: '>=0.1.0'
         version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.2)
       lucide-react:
         specifier: ^0.577.0
@@ -155,7 +155,7 @@ importers:
   packages/events:
     dependencies:
       '@deck-ui/core':
-        specifier: ^0.1.0
+        specifier: '>=0.1.0'
         version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.2)
       framer-motion:
         specifier: ^12.38.0
@@ -173,7 +173,7 @@ importers:
   packages/layout:
     dependencies:
       '@deck-ui/core':
-        specifier: ^0.1.0
+        specifier: '>=0.1.0'
         version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.2)
       lucide-react:
         specifier: ^0.577.0
@@ -191,7 +191,7 @@ importers:
   packages/memory:
     dependencies:
       '@deck-ui/core':
-        specifier: ^0.1.0
+        specifier: '>=0.1.0'
         version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.2)
       lucide-react:
         specifier: ^0.577.0
@@ -206,7 +206,7 @@ importers:
   packages/review:
     dependencies:
       '@deck-ui/core':
-        specifier: ^0.1.0
+        specifier: '>=0.1.0'
         version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.2)
       lucide-react:
         specifier: ^0.577.0
@@ -224,7 +224,7 @@ importers:
   packages/routines:
     dependencies:
       '@deck-ui/core':
-        specifier: ^0.1.0
+        specifier: '>=0.1.0'
         version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.2)
       framer-motion:
         specifier: ^12.38.0
@@ -242,7 +242,7 @@ importers:
   packages/skills:
     dependencies:
       '@deck-ui/core':
-        specifier: ^0.1.0
+        specifier: '>=0.1.0'
         version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.2)
       lucide-react:
         specifier: ^0.577.0
@@ -257,7 +257,7 @@ importers:
   packages/workspace:
     dependencies:
       '@deck-ui/core':
-        specifier: ^0.1.0
+        specifier: '>=0.1.0'
         version: 0.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.2.2)
       lucide-react:
         specifier: ^0.577.0

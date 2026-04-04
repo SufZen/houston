@@ -10,10 +10,6 @@ pub fn build_system_prompt(dir: &Path) -> String {
     kw::build_system_prompt(dir, BASE_SYSTEM_PROMPT, None, &PROMPT_FILES)
 }
 
-pub const KNOWN_FILES: &[(&str, &str)] = &[
-    ("CLAUDE.md", "Agent instructions and behavior rules"),
-];
-
 const PROMPT_FILES: [(&str, &str); 1] = [
     ("CLAUDE.md", "CLAUDE.md — Agent Instructions"),
 ];

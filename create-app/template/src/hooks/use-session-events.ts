@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useFeedStore } from "../stores/feeds";
-import { useUIStore } from "../stores/ui";
 import type { KeelEvent } from "../lib/types";
 
 export function useSessionEvents() {
@@ -14,26 +13,22 @@ export function useSessionEvents() {
       const payload = event.payload;
 
       switch (payload.type) {
-        case "FeedItem": {
-          const activeId = useUIStore.getState().currentSessionId;
-          const isDesktopDupe =
-            payload.data.session_key === activeId &&
-            payload.data.item.feed_type === "user_message";
-          if (!isDesktopDupe) {
-            handlerRef.current("main", payload.data.item);
-          }
+        case "FeedItem":
+          handlerRef.current(payload.data.session_key, payload.data.item);
           break;
-        }
         case "SessionStatus":
           if (payload.data.status === "error" && payload.data.error) {
-            handlerRef.current("main", {
+            handlerRef.current(payload.data.session_key, {
               feed_type: "system_message",
               data: `Session error: ${payload.data.error}`,
             });
           }
           break;
         case "Toast":
-          console.log(`[toast:${payload.data.variant}]`, payload.data.message);
+          console.log(
+            `[toast:${payload.data.variant}]`,
+            payload.data.message,
+          );
           break;
       }
     });

@@ -1,29 +1,31 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Project } from "./types";
+import type { Agent } from "./types";
 
-/** Type-safe wrappers around Tauri invoke() calls. */
-
-export const tauriProjects = {
-  list: () => invoke<Project[]>("list_projects"),
-  create: (name: string, folderPath: string) =>
-    invoke<Project>("create_project", { name, folderPath }),
+export const tauriAgents = {
+  list: () => invoke<Agent[]>("list_agents"),
+  create: (name: string) => invoke<Agent>("create_agent", { name }),
 };
 
-export const tauriSessions = {
-  ensureWorkspace: (projectId: string) =>
-    invoke<void>("ensure_workspace", { projectId }),
-  start: (projectId: string, prompt: string) =>
-    invoke<string>("start_session", { projectId, prompt }),
-  loadFeed: (projectId: string) =>
+export const tauriChat = {
+  send: (workspacePath: string, prompt: string) =>
+    invoke<string>("send_message", {
+      workspacePath,
+      prompt,
+    }),
+  loadHistory: (workspacePath: string) =>
     invoke<Array<{ feed_type: string; data: unknown }>>(
-      "load_chat_feed",
-      { projectId },
+      "load_chat_history",
+      { workspacePath },
     ),
 };
 
 export const tauriWorkspace = {
-  readFile: (projectId: string, fileName: string) =>
-    invoke<string>("read_workspace_file", { projectId, fileName }),
-  writeFile: (projectId: string, fileName: string, content: string) =>
-    invoke<void>("write_workspace_file", { projectId, fileName, content }),
+  readFile: (workspacePath: string, name: string) =>
+    invoke<string>("read_workspace_file", { workspacePath, name }),
+  writeFile: (workspacePath: string, name: string, content: string) =>
+    invoke<void>("write_workspace_file", {
+      workspacePath,
+      name,
+      content,
+    }),
 };

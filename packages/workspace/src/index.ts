@@ -12,3 +12,7 @@ export type { InstructionsPanelProps } from "./instructions-panel"
 
 // Hooks
 export { useDropZone, useFolderDropTarget } from "./drop-zone"
+
+// Utilities
+export { formatSize, formatFinderDate, getKind } from "./utils"
+export type { SortKey, SortDirection } from "./utils"

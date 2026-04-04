@@ -1,12 +1,13 @@
-mod agent_sessions;
 mod commands;
 mod workspace;
 
-pub use agent_sessions::AgentSessionMap;
-
+use keel_tauri::agent_sessions::AgentSessionMap;
 use keel_tauri::keel_db::Database;
 use keel_tauri::state::AppState;
 use tauri::Manager;
+
+/// The parent directory containing all agent workspaces.
+pub struct WorkspaceRoot(pub String);
 
 pub fn run() {
     tauri::Builder::default()
@@ -20,24 +21,27 @@ pub fn run() {
                     .expect("Failed to open database")
             });
 
+            let docs = dirs::document_dir().expect("No Documents directory found");
+            let root = docs.join("{{APP_NAME_TITLE}}");
+            std::fs::create_dir_all(&root).ok();
+
             app.manage(AppState {
                 db,
                 event_queue: None,
                 scheduler: None,
             });
             app.manage(AgentSessionMap::default());
+            app.manage(WorkspaceRoot(root.to_string_lossy().to_string()));
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::projects::list_projects,
-            commands::projects::create_project,
-            commands::sessions::ensure_workspace,
-            commands::sessions::start_session,
-            commands::sessions::load_chat_feed,
-            commands::workspace::list_workspace_files,
-            commands::workspace::read_workspace_file,
-            commands::workspace::write_workspace_file,
+            commands::list_agents,
+            commands::create_agent,
+            commands::send_message,
+            commands::load_chat_history,
+            commands::read_workspace_file,
+            commands::write_workspace_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

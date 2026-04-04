@@ -3,26 +3,26 @@ import { InstructionsPanel } from "@deck-ui/workspace";
 import type { InstructionFile } from "@deck-ui/workspace";
 import { tauriWorkspace } from "../lib/tauri";
 
-interface ClaudeMdEditorProps {
-  projectId: string;
+interface ContextTabProps {
+  workspacePath: string;
 }
 
-export function ClaudeMdEditor({ projectId }: ClaudeMdEditorProps) {
+export function ContextTab({ workspacePath }: ContextTabProps) {
   const [files, setFiles] = useState<InstructionFile[]>([]);
 
   useEffect(() => {
     tauriWorkspace
-      .readFile(projectId, "CLAUDE.md")
+      .readFile(workspacePath, "CLAUDE.md")
       .then((content) => {
         setFiles([{ name: "CLAUDE.md", label: "CLAUDE.md", content }]);
       })
       .catch(() => {
         setFiles([{ name: "CLAUDE.md", label: "CLAUDE.md", content: "" }]);
       });
-  }, [projectId]);
+  }, [workspacePath]);
 
   const handleSave = async (name: string, content: string) => {
-    await tauriWorkspace.writeFile(projectId, name, content);
+    await tauriWorkspace.writeFile(workspacePath, name, content);
     setFiles((prev) =>
       prev.map((f) => (f.name === name ? { ...f, content } : f)),
     );
