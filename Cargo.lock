@@ -2174,6 +2174,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "libsql",
+ "serde",
  "tokio",
 ]
 
@@ -2189,6 +2190,14 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "keel-memory"
+version = "0.2.0"
+dependencies = [
+ "tempfile",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -2215,6 +2224,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "keel-skills"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "keel-tauri"
 version = "0.3.1"
 dependencies = [
@@ -2222,6 +2242,7 @@ dependencies = [
  "keel-channels",
  "keel-db",
  "keel-events",
+ "keel-memory",
  "keel-scheduler",
  "keel-sessions",
  "libsql",
