@@ -35,7 +35,6 @@ export function FilesTab({ workspacePath }: FilesTabProps) {
         await tauriFiles.delete(workspacePath, file.path);
         loadFiles();
       }}
-      onRevealWorkspace={() => tauriFiles.revealWorkspace(workspacePath)}
       emptyTitle="No files yet"
       emptyDescription="Files created by your agent will appear here."
     />
