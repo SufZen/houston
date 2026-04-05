@@ -40,6 +40,14 @@ export interface LearningsData {
   limit: number;
 }
 
+/** A channel entry from .keel/channels.json (matches Rust ChannelEntry) */
+export interface ChannelEntry {
+  id: string;
+  channel_type: string;
+  name: string;
+  token: string;
+}
+
 /** Events emitted from the Rust backend via keel-tauri */
 export type KeelEvent =
   | {

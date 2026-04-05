@@ -12,6 +12,9 @@ export type { ChannelSetupFormProps } from "./channel-setup-form";
 export { ChannelsSection } from "./channels-section";
 export type { ChannelsSectionProps } from "./channels-section";
 
+export { ChannelsView } from "./channels-view";
+export type { ChannelsViewProps } from "./channels-view";
+
 export type {
   Connection,
   ConnectionsResult,

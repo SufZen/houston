@@ -19,6 +19,8 @@ import { ContextTab } from "./components/context-tab";
 import { SkillsTab } from "./components/skills-tab";
 import { LearningsTab } from "./components/learnings-tab";
 import { FilesTab } from "./components/files-tab";
+import { ConnectionsTab } from "./components/connections-tab";
+import { ChannelsTab } from "./components/channels-tab";
 import { CreateAgentDialog } from "./components/create-agent-dialog";
 
 const MAIN_KEY = "main";
@@ -29,6 +31,8 @@ const TABS = [
   { id: "skills" as const, label: "Skills" },
   { id: "learnings" as const, label: "Learnings" },
   { id: "files" as const, label: "Files" },
+  { id: "connections" as const, label: "Connections" },
+  { id: "channels" as const, label: "Channels" },
 ];
 
 export function App() {
@@ -149,8 +153,12 @@ export function App() {
               <SkillsTab workspacePath={current.path} />
             ) : viewMode === "learnings" ? (
               <LearningsTab workspacePath={current.path} />
-            ) : (
+            ) : viewMode === "files" ? (
               <FilesTab workspacePath={current.path} />
+            ) : viewMode === "connections" ? (
+              <ConnectionsTab workspacePath={current.path} />
+            ) : (
+              <ChannelsTab workspacePath={current.path} />
             )}
           </main>
         </div>

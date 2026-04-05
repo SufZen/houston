@@ -192,6 +192,16 @@ pub async fn reveal_workspace(
     Ok(())
 }
 
+/// Open a URL in the system default browser.
+#[tauri::command]
+pub async fn open_url(url: String) -> Result<(), String> {
+    std::process::Command::new("open")
+        .arg(&url)
+        .spawn()
+        .map_err(|e| format!("Failed to open URL: {e}"))?;
+    Ok(())
+}
+
 /// Write a file from raw bytes (base64-encoded) into the workspace.
 /// Used when files come from a web file picker (no filesystem path available).
 #[tauri::command]
@@ -311,9 +321,22 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<ProjectFile>) {
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
         if path.is_dir() {
-            if !should_skip_dir(&name) {
-                collect_files(root, &path, out);
+            if should_skip_dir(&name) {
+                continue;
             }
+            // Add the folder itself as an entry
+            let relative = path
+                .strip_prefix(root)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .to_string();
+            out.push(ProjectFile {
+                path: relative,
+                name,
+                extension: String::new(),
+                size: 0,
+            });
+            collect_files(root, &path, out);
             continue;
         }
         let ext = path

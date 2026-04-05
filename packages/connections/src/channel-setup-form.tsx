@@ -5,7 +5,6 @@
 import { Loader2 } from "lucide-react"
 import { cn } from "@deck-ui/core"
 import type { ChannelType } from "./types"
-import { CHANNEL_LABELS } from "./types"
 import { useState } from "react"
 
 export interface ChannelSetupFormProps {
@@ -45,9 +44,6 @@ export function ChannelSetupForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <h3 className="text-sm font-medium text-foreground">
-        Set up {CHANNEL_LABELS[type]}
-      </h3>
 
       {type === "slack" && (
         <>

@@ -11,6 +11,7 @@ export interface ConnectionsViewProps {
   loading: boolean;
   onRetry: () => void;
   onManage: () => void;
+  onAuth?: () => void;
   channels?: ChannelConnection[];
   onChannelConnect?: (channel: ChannelConnection) => void;
   onChannelDisconnect?: (channel: ChannelConnection) => void;
@@ -24,6 +25,7 @@ export function ConnectionsView({
   loading,
   onRetry,
   onManage,
+  onAuth,
   channels,
   onChannelConnect,
   onChannelDisconnect,
@@ -91,27 +93,21 @@ export function ConnectionsView({
 
         {/* Needs auth */}
         {!loading && result?.status === "needs_auth" && (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <div className="space-y-2 text-center max-w-md">
-              <h1 className="text-2xl font-semibold text-foreground tracking-tight">
-                Composio needs authentication
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Open Claude Code in your terminal and type{" "}
-                <code className="px-1.5 py-0.5 bg-muted rounded text-[13px]">
-                  /mcp
-                </code>{" "}
-                to complete the OAuth setup for Composio.
-              </p>
-            </div>
+          <Empty className="border-0">
+            <EmptyHeader>
+              <EmptyTitle>Connect to Composio</EmptyTitle>
+              <EmptyDescription>
+                Sign in to Composio so your agent can use Gmail, Slack, Google
+                Drive, and 100+ other services on your behalf.
+              </EmptyDescription>
+            </EmptyHeader>
             <button
-              onClick={onRetry}
+              onClick={onAuth ?? onManage}
               className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors duration-200"
             >
-              <RefreshCw className="size-3.5" />
-              Retry
+              Sign in to Composio
             </button>
-          </div>
+          </Empty>
         )}
 
         {/* Error */}

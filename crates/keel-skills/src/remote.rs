@@ -90,22 +90,26 @@ pub async fn install_skill(
     let raw_md = fetch_skill_md(&client, source, skill_id).await?;
     let parsed = parse_skill_md(&raw_md, skill_id);
 
+    // Use skill_id as the directory name (already kebab-case),
+    // not the parsed heading which may have uppercase/spaces.
+    let install_name = skill_id.to_string();
+
     // Don't overwrite existing
-    if skills_dir.join(&parsed.name).exists() {
-        return Err(SkillError::AlreadyExists(parsed.name));
+    if skills_dir.join(&install_name).exists() {
+        return Err(SkillError::AlreadyExists(install_name));
     }
 
     crate::create_skill(
         skills_dir,
         CreateSkillInput {
-            name: parsed.name.clone(),
+            name: install_name.clone(),
             description: parsed.description,
             content: parsed.content,
             tags: vec![],
         },
     )?;
 
-    Ok(parsed.name)
+    Ok(install_name)
 }
 
 /// Install all skills from a GitHub repo's `skills/` directory.
@@ -138,18 +142,14 @@ pub async fn install_from_repo(
         match fetch_skill_md(&client, source, skill_id).await {
             Ok(raw_md) => {
                 let parsed = parse_skill_md(&raw_md, skill_id);
-                if skills_dir.join(&parsed.name).exists() {
-                    installed.push(parsed.name);
-                    continue;
-                }
                 let input = CreateSkillInput {
-                    name: parsed.name.clone(),
+                    name: skill_id.clone(),
                     description: parsed.description,
                     content: parsed.content,
                     tags: vec![],
                 };
                 match crate::create_skill(skills_dir, input) {
-                    Ok(()) => installed.push(parsed.name),
+                    Ok(()) => installed.push(skill_id.clone()),
                     Err(e) => eprintln!("[keel-skills] skip {skill_id}: {e}"),
                 }
             }

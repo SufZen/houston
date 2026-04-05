@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { ConnectionsResult } from "@deck-ui/connections";
 import type {
   Agent,
   SkillSummary,
@@ -6,6 +7,7 @@ import type {
   CommunitySkillResult,
   FileEntry,
   LearningsData,
+  ChannelEntry,
 } from "./types";
 
 export const tauriAgents = {
@@ -68,6 +70,19 @@ export const tauriLearnings = {
     invoke<void>("replace_learning", { workspacePath, index, text }),
   remove: (workspacePath: string, index: number) =>
     invoke<void>("remove_learning", { workspacePath, index }),
+};
+
+export const tauriConnections = {
+  list: () => invoke<ConnectionsResult>("list_composio_connections"),
+};
+
+export const tauriChannels = {
+  list: (workspacePath: string) =>
+    invoke<ChannelEntry[]>("list_channels_config", { workspacePath }),
+  add: (workspacePath: string, input: { channel_type: string; name: string; token: string }) =>
+    invoke<ChannelEntry>("add_channel_config", { workspacePath, input }),
+  remove: (workspacePath: string, channelId: string) =>
+    invoke<void>("remove_channel_config", { workspacePath, channelId }),
 };
 
 export const tauriFiles = {

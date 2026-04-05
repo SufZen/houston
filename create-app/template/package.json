@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@deck-ui/chat": "^0.6.0",
+    "@deck-ui/connections": "^0.4.0",
     "@deck-ui/core": "^0.3.1",
     "@deck-ui/layout": "^0.5.0",
     "@deck-ui/memory": "^0.2.0",

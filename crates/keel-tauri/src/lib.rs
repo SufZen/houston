@@ -6,6 +6,9 @@
 pub mod agent_sessions;
 pub mod channel_manager;
 pub mod chat_session;
+pub mod composio;
+pub mod composio_auth;
+pub mod composio_commands;
 pub mod events;
 pub mod paths;
 pub mod self_improvement;

@@ -10,7 +10,19 @@ export function NewFolderInput({ onConfirm, onCancel }: {
   onCancel: () => void
 }) {
   const [value, setValue] = useState("")
-  const inputRef = useRef<HTMLInputElement>(null)
+  const committed = useRef(false)
+
+  const commit = () => {
+    if (committed.current) return
+    const trimmed = value.trim()
+    if (trimmed) {
+      committed.current = true
+      onConfirm(trimmed)
+    } else {
+      onCancel()
+    }
+  }
+
   return (
     <div
       className="h-[24px] bg-[#2068d0] rounded-lg items-center"
@@ -20,15 +32,14 @@ export function NewFolderInput({ onConfirm, onCancel }: {
         <DisclosureChevron open={false} className="invisible" />
         <FolderIcon />
         <input
-          ref={inputRef}
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && value.trim()) onConfirm(value.trim())
+            if (e.key === "Enter") commit()
             if (e.key === "Escape") onCancel()
           }}
-          onBlur={() => (value.trim() ? onConfirm(value.trim()) : onCancel())}
+          onBlur={commit}
           placeholder="untitled folder"
           className="flex-1 text-[13px] bg-transparent text-white outline-none placeholder:text-white/50 min-w-0"
         />

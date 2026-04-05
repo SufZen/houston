@@ -66,6 +66,9 @@ pub fn run() {
             keel_tauri::workspace_commands::create_workspace_folder,
             keel_tauri::workspace_commands::reveal_workspace,
             keel_tauri::workspace_commands::import_files,
+            keel_tauri::composio_commands::list_composio_connections,
+            keel_tauri::composio_commands::start_composio_oauth,
+            keel_tauri::workspace_commands::open_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
