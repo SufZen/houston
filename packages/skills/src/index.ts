@@ -8,6 +8,8 @@ export type {
 export { CATEGORY_LABELS } from "./types"
 
 // Components
+export { AddSkillDialog } from "./add-skill-dialog"
+export type { AddSkillDialogProps } from "./add-skill-dialog"
 export { SkillsGrid } from "./skills-grid"
 export type { SkillsGridProps } from "./skills-grid"
 export { SkillRow } from "./skill-row"

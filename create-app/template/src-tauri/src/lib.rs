@@ -51,6 +51,9 @@ pub fn run() {
             skill_commands::create_skill,
             skill_commands::delete_skill,
             skill_commands::save_skill,
+            skill_commands::install_skills_from_repo,
+            skill_commands::search_community_skills,
+            skill_commands::install_community_skill,
             memory_commands::load_learnings,
             memory_commands::add_learning,
             memory_commands::replace_learning,
@@ -59,6 +62,8 @@ pub fn run() {
             keel_tauri::workspace_commands::open_file,
             keel_tauri::workspace_commands::reveal_file,
             keel_tauri::workspace_commands::delete_file,
+            keel_tauri::workspace_commands::rename_file,
+            keel_tauri::workspace_commands::create_workspace_folder,
             keel_tauri::workspace_commands::reveal_workspace,
             keel_tauri::workspace_commands::import_files,
         ])

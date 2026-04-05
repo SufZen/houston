@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { SkillsGrid, SkillDetailPage } from "@deck-ui/skills";
-import type { Skill } from "@deck-ui/skills";
+import type { Skill, CommunitySkill } from "@deck-ui/skills";
 import { tauriSkills } from "../lib/tauri";
 
 interface SkillsTabProps {
@@ -40,10 +40,7 @@ export function SkillsTab({ workspacePath }: SkillsTabProps) {
     async (skill: Skill) => {
       try {
         const detail = await tauriSkills.load(workspacePath, skill.name);
-        setSelectedSkill({
-          ...skill,
-          instructions: detail.content,
-        });
+        setSelectedSkill({ ...skill, instructions: detail.content });
       } catch (e) {
         console.error("[skills] Failed to load detail:", e);
       }
@@ -56,6 +53,36 @@ export function SkillsTab({ workspacePath }: SkillsTabProps) {
       await tauriSkills.save(workspacePath, skillName, instructions);
     },
     [workspacePath],
+  );
+
+  const handleSearch = useCallback(async (query: string) => {
+    const results = await tauriSkills.searchCommunity(query);
+    return results as CommunitySkill[];
+  }, []);
+
+  const handleInstallCommunity = useCallback(
+    async (skill: CommunitySkill) => {
+      const name = await tauriSkills.installCommunity(
+        workspacePath,
+        skill.source,
+        skill.skillId,
+      );
+      await loadSkills();
+      return name;
+    },
+    [workspacePath, loadSkills],
+  );
+
+  const handleInstallFromRepo = useCallback(
+    async (source: string) => {
+      const installed = await tauriSkills.installFromRepo(
+        workspacePath,
+        source,
+      );
+      await loadSkills();
+      return installed;
+    },
+    [workspacePath, loadSkills],
   );
 
   const handleBack = useCallback(() => {
@@ -78,6 +105,9 @@ export function SkillsTab({ workspacePath }: SkillsTabProps) {
       skills={skills}
       loading={loading}
       onSkillClick={handleSkillClick}
+      onSearch={handleSearch}
+      onInstallCommunity={handleInstallCommunity}
+      onInstallFromRepo={handleInstallFromRepo}
     />
   );
 }

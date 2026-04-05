@@ -6,6 +6,8 @@
 pub mod format;
 pub mod index;
 pub mod patch;
+#[cfg(feature = "remote")]
+pub mod remote;
 mod validate;
 
 use serde::{Deserialize, Serialize};

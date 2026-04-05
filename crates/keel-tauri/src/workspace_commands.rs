@@ -94,6 +94,21 @@ pub async fn reveal_file(
     Ok(())
 }
 
+/// Rename a file or folder in the workspace.
+#[tauri::command]
+pub async fn rename_file(
+    workspace_path: String,
+    relative_path: String,
+    new_name: String,
+) -> Result<(), String> {
+    let full_path = resolve_file(&workspace_path, &relative_path)?;
+    let parent = full_path.parent().ok_or("Invalid file path")?;
+    let new_path = parent.join(&new_name);
+    std::fs::rename(&full_path, &new_path)
+        .map_err(|e| format!("Failed to rename: {e}"))?;
+    Ok(())
+}
+
 /// Delete a file from the workspace.
 #[tauri::command]
 pub async fn delete_file(

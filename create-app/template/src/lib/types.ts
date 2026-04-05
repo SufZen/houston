@@ -19,6 +19,14 @@ export interface SkillDetail {
   content: string;
 }
 
+export interface CommunitySkillResult {
+  id: string;
+  skillId: string;
+  name: string;
+  installs: number;
+  source: string;
+}
+
 export interface FileEntry {
   path: string;
   name: string;

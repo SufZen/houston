@@ -2,7 +2,7 @@
  * FilesBrowser — macOS Finder list-view clone.
  * Column headers with sort, file/folder tree, status bar, drag-and-drop.
  */
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn, Button } from "@deck-ui/core"
 import { Upload } from "lucide-react"
@@ -47,6 +47,7 @@ export function FilesBrowser({
 
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [bgMenu, setBgMenu] = useState<{ x: number; y: number } | null>(null)
+
   const [folderDropTarget, setFolderDropTarget] = useState<string | null>(null)
   const folderTargetRef = useRef<string | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>("name")
@@ -82,6 +83,19 @@ export function FilesBrowser({
     return sortTree(buildTree(files), sortKey, sortDir)
   }, [files, isEmpty, sortKey, sortDir])
 
+  const fileCount = useMemo(() => {
+    if (!tree) return 0
+    let count = 0
+    const walk = (children: typeof tree.children) => {
+      for (const c of children) {
+        count++
+        if (c.kind === "folder") walk(c.children)
+      }
+    }
+    walk(tree.children)
+    return count
+  }, [tree])
+
   if (isEmpty) {
     return (
       <div className="flex-1 flex flex-col items-center pt-[20vh] gap-4 px-8">
@@ -113,11 +127,9 @@ export function FilesBrowser({
       </div>
 
       <div
-        className="flex-1 overflow-y-auto [&>:nth-child(even)]:bg-[#f5f5f5]"
+        className="flex-1 flex flex-col overflow-y-auto px-1"
         style={{
           backgroundColor: isRootTarget ? "rgba(0,122,255,0.06)" : undefined,
-          backgroundImage: !isRootTarget ? "repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff 24px, #f5f5f5 24px, #f5f5f5 48px)" : undefined,
-          backgroundSize: "100% 48px",
         }}
         onClick={(e) => {
           if (e.target === e.currentTarget) {
@@ -139,30 +151,41 @@ export function FilesBrowser({
           </div>
         ) : (
           <>
-            {creatingFolder && (
-              <NewFolderInput
-                onConfirm={(n) => { onCreateFolder?.(n); setCreatingFolder(false) }}
-                onCancel={() => setCreatingFolder(false)}
-              />
-            )}
-            {tree?.children.map((child) =>
-              child.kind === "folder" ? (
-                <FolderSection
-                  key={child.path} node={child} depth={0}
-                  selectedPath={selectedPath} onSelect={handleSelect}
-                  onOpen={onOpen} onReveal={onReveal} onDelete={onDelete}
-                  onRename={onRename}
-                  onFilesDropped={onFilesDropped} onDragActive={onDragActive} onMove={onMove}
+            <div className="shrink-0 [&>:nth-child(even)]:bg-[#f5f5f5] [&>:nth-child(even)]:rounded-lg">
+              {creatingFolder && (
+                <NewFolderInput
+                  onConfirm={(n) => { onCreateFolder?.(n); setCreatingFolder(false) }}
+                  onCancel={() => setCreatingFolder(false)}
                 />
-              ) : (
-                <FileRow
-                  key={child.entry.path} file={child.entry}
-                  selected={selectedPath === child.entry.path}
-                  onSelect={handleSelect} onOpen={onOpen}
-                  onReveal={onReveal} onDelete={onDelete} onRename={onRename} onMove={onMove}
-                />
-              ),
-            )}
+              )}
+              {tree?.children.map((child) =>
+                child.kind === "folder" ? (
+                  <FolderSection
+                    key={child.path} node={child} depth={0}
+                    selectedPath={selectedPath} onSelect={handleSelect}
+                    onOpen={onOpen} onReveal={onReveal} onDelete={onDelete}
+                    onRename={onRename}
+                    onFilesDropped={onFilesDropped} onDragActive={onDragActive} onMove={onMove}
+                  />
+                ) : (
+                  <FileRow
+                    key={child.entry.path} file={child.entry}
+                    selected={selectedPath === child.entry.path}
+                    onSelect={handleSelect} onOpen={onOpen}
+                    onReveal={onReveal} onDelete={onDelete} onRename={onRename} onMove={onMove}
+                  />
+                ),
+              )}
+            </div>
+            <FillerStripes
+              startIndex={fileCount}
+              onDeselect={() => { setInternalSelected(null); setBgMenu(null) }}
+              onContextMenu={onCreateFolder ? (e) => {
+                e.preventDefault()
+                setInternalSelected(null)
+                setBgMenu({ x: e.clientX, y: e.clientY })
+              } : undefined}
+            />
           </>
         )}
       </div>
@@ -174,6 +197,42 @@ export function FilesBrowser({
           onClose={() => setBgMenu(null)}
         />
       )}
+    </div>
+  )
+}
+
+/** Fills remaining vertical space with real rounded stripe divs. */
+function FillerStripes({ startIndex, onDeselect, onContextMenu }: {
+  startIndex: number
+  onDeselect: () => void
+  onContextMenu?: (e: React.MouseEvent) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const update = () => {
+      const h = el.clientHeight
+      setCount(Math.ceil(h / 24))
+    }
+    update()
+    const obs = new ResizeObserver(update)
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  return (
+    <div ref={containerRef} className="flex-1 min-h-0">
+      {Array.from({ length: count }, (_, i) => (
+        <div
+          key={i}
+          className={cn("h-[24px]", (startIndex + i) % 2 === 1 && "bg-[#f5f5f5] rounded-lg")}
+          onClick={onDeselect}
+          onContextMenu={onContextMenu}
+        />
+      ))}
     </div>
   )
 }

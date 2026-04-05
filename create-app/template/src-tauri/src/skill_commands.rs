@@ -92,3 +92,35 @@ pub async fn save_skill(
     let dir = skills_dir(&workspace_path);
     keel_skills::edit_skill(&dir, &name, &content).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn install_skills_from_repo(
+    workspace_path: String,
+    source: String,
+) -> Result<Vec<String>, String> {
+    let dir = skills_dir(&workspace_path);
+    keel_skills::remote::install_from_repo(&dir, &source)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn search_community_skills(
+    query: String,
+) -> Result<Vec<keel_skills::remote::CommunitySkill>, String> {
+    keel_skills::remote::search_skills(&query)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn install_community_skill(
+    workspace_path: String,
+    source: String,
+    skill_id: String,
+) -> Result<String, String> {
+    let dir = skills_dir(&workspace_path);
+    keel_skills::remote::install_skill(&dir, &source, &skill_id)
+        .await
+        .map_err(|e| e.to_string())
+}

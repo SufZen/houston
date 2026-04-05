@@ -3,6 +3,7 @@ import type {
   Agent,
   SkillSummary,
   SkillDetail,
+  CommunitySkillResult,
   FileEntry,
   LearningsData,
 } from "./types";
@@ -50,6 +51,12 @@ export const tauriSkills = {
     invoke<void>("delete_skill", { workspacePath, name }),
   save: (workspacePath: string, name: string, content: string) =>
     invoke<void>("save_skill", { workspacePath, name, content }),
+  installFromRepo: (workspacePath: string, source: string) =>
+    invoke<string[]>("install_skills_from_repo", { workspacePath, source }),
+  searchCommunity: (query: string) =>
+    invoke<CommunitySkillResult[]>("search_community_skills", { query }),
+  installCommunity: (workspacePath: string, source: string, skillId: string) =>
+    invoke<string>("install_community_skill", { workspacePath, source, skillId }),
 };
 
 export const tauriLearnings = {
@@ -72,8 +79,10 @@ export const tauriFiles = {
     invoke<void>("reveal_file", { workspacePath, relativePath }),
   delete: (workspacePath: string, relativePath: string) =>
     invoke<void>("delete_file", { workspacePath, relativePath }),
+  rename: (workspacePath: string, relativePath: string, newName: string) =>
+    invoke<void>("rename_file", { workspacePath, relativePath, newName }),
   createFolder: (workspacePath: string, name: string) =>
-    invoke<void>("create_workspace_folder", { workspacePath, name }),
+    invoke<void>("create_workspace_folder", { workspacePath, folderName: name }),
   revealWorkspace: (workspacePath: string) =>
     invoke<void>("reveal_workspace", { workspacePath }),
 };
