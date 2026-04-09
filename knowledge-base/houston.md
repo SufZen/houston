@@ -2,11 +2,12 @@
 
 ## What This Is
 
-A framework for building AI agent desktop apps. Two halves of one ship:
-- **Houston** (Rust crates) — session management, database, workspace persistence, Tauri integration
-- **Houston UI** (React packages) — UI components for chat, kanban boards, layouts, and design system
+A framework for building AI agent desktop apps. Three layers:
+- **Houston App** (`app/`) — the flagship AI work delegation desktop app (Tauri 2). Consumes the library and serves as living documentation.
+- **Houston** (Rust crates in `crates/`) — session management, database, agent persistence, Tauri integration
+- **Houston UI** (React packages in `packages/`) — UI components for chat, kanban boards, layouts, and design system
 
-**Architecture:** Components are genericized and props-driven. No Zustand store dependencies, no app-specific logic in the library. All visual styling follows the Houston design system.
+**Architecture:** Library components are genericized and props-driven. No Zustand store dependencies, no app-specific logic in the library. All visual styling follows the Houston design system. The app wires stores to library component props.
 
 ---
 
@@ -16,7 +17,17 @@ A framework for building AI agent desktop apps. Two halves of one ship:
 houston/
 +-- app/                Houston app (Tauri 2) -- AI work delegation desktop app
 |   +-- src/            React frontend
+|   |   +-- components/
+|   |   |   +-- shell/      App shell: sidebar.tsx, workspace-switcher.tsx
+|   |   |   +-- tabs/       Built-in tab components (chat, board, context, etc.)
+|   |   +-- agents/
+|   |   |   +-- builtin/    Built-in agent manifests (9 agents)
+|   |   |   +-- loader.ts   Agent resolution (built-in + installed)
+|   |   +-- stores/         Zustand stores (workspaces, agents, feeds, ui, agent-catalog)
+|   |   +-- hooks/          App-level hooks (useSessionEvents, etc.)
+|   |   +-- lib/            Types, utilities, constants
 |   +-- src-tauri/      Rust backend
+|   |   +-- src/commands/   Tauri commands (workspaces, agents, sessions, preferences)
 +-- crates/
 |   +-- houston-channels/  houston-channels     -- Channel adapters (Telegram, Slack), Channel trait, registry
 |   +-- houston-db/        houston-db           -- Database: chat_feed persistence + v1 compat models (libsql)
@@ -24,7 +35,7 @@ houston/
 |   +-- houston-memory/    houston-memory       -- Agent memory store (evaluating for removal)
 |   +-- houston-scheduler/ houston-scheduler    -- Cron jobs and heartbeat timer scheduling
 |   +-- houston-sessions/  houston-sessions     -- Claude CLI session management, parser, streaming
-|   +-- houston-tauri/     houston-tauri        -- Tauri integration: state, events, session runner, workspace_store, channel manager
+|   +-- houston-tauri/     houston-tauri        -- Tauri integration: state, events, session runner, agent_store, channel manager
 +-- packages/
 |   +-- core/           @houston-ai/core     -- Design system, shadcn/ui, event hooks, utilities
 |   +-- chat/           @houston-ai/chat     -- Chat panel, AI Elements, streaming, progress, channel avatars
@@ -36,8 +47,8 @@ houston/
 |   +-- routines/       @houston-ai/routines -- RoutinesGrid, HeartbeatConfig, ScheduleBuilder
 |   +-- skills/         @houston-ai/skills   -- SkillsGrid, SkillDetailPage, CommunitySkillsSection
 |   +-- review/         @houston-ai/review   -- ReviewItem, ReviewEmpty, DeliverableCard
-|   +-- workspace/      @houston-ai/workspace -- FilesBrowser, InstructionsPanel
-+-- create-app/         create-houston-experience -- Scaffolding template for new experiences
+|   +-- agent/          @houston-ai/agent    -- FilesBrowser, InstructionsPanel
++-- create-app/         create-houston-agent -- Scaffolding template for new agents
 +-- showcase/           Component showcase -- live docs & demos for all @houston-ai components
 +-- Cargo.toml          Rust workspace root
 +-- package.json        pnpm workspace root
@@ -47,7 +58,136 @@ houston/
 
 ---
 
-## Workspace Convention (`.houston/` folder)
+## Houston App Concepts
+
+### Workspaces
+
+Workspaces are the top-level organizational container (replaced "Space" / "Organization" in earlier versions). Each workspace is an isolated group of agents with its own connections.
+
+```typescript
+interface Workspace {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+```
+
+- **Storage:** `~/.houston/workspaces.json` (index) + one directory per workspace (`~/.houston/workspaces/{WorkspaceName}/`)
+- **First launch:** welcome screen prompts user to create their first workspace
+- **Hierarchy:** Workspace > Agent (many agents per workspace)
+- **Rust commands:** `list_workspaces`, `create_workspace`, `rename_workspace`, `delete_workspace` (in `app/src-tauri/src/commands/workspaces.rs`)
+- **Store:** `useWorkspaceStore` — `loadWorkspaces()`, `setCurrent()`, `create()`, `rename()`, `delete()`
+
+### Sidebar Structure
+
+The app sidebar (`app/src/components/shell/sidebar.tsx`) has two tiers:
+
+```
++---------------------------+
+| [WorkspaceSwitcher] [Settings]|  -- select/create Workspaces
+|---------------------------|
+| > Dashboard               |  -- all agents overview
+| > Connections             |  -- workspace-wide integrations
+|---------------------------|
+| Your AI Agents            |
+|   > Research Agent        |  -- agent items (sorted by lastOpenedAt)
+|   > Project Manager       |
+|   > Code Reviewer         |
+|   + New Agent             |  -- create agent (pick agent definition)
++---------------------------+
+```
+
+- **WorkspaceSwitcher:** dropdown to select/create workspaces
+- **Dashboard:** shows all agents in current workspace as a grid
+- **Connections:** workspace-scoped channel/service management
+- **Agent items:** sorted by `lastOpenedAt`, support rename/delete via context menu
+
+### Agent Definition System
+
+Agent definitions (manifests) define what an AI agent looks like — which tabs are available, what system prompt the agent uses, and what files are seeded on creation.
+
+**Three tiers:**
+
+1. **JSON-only:** `manifest.json` defines tabs, prompt, colors, icon. Uses built-in @houston-ai tab components.
+2. **Custom React:** `manifest.json` + `bundle.js` with custom React components. Components import @houston-ai as peer deps.
+3. **Custom Rust:** PR a new crate to this repo. Agent definition declares `features: ["capability"]` in manifest.
+
+**Manifest structure:**
+```typescript
+interface AgentManifest {
+  id: string;
+  name: string;
+  description: string;
+  version?: string;
+  icon?: string;           // Lucide icon name
+  color?: string;          // Brand color override
+  category?: AgentCategory;
+  author?: string;
+  tags?: string[];
+  tabs: AgentTab[];
+  defaultTab?: string;
+  claudeMd?: string;       // CLAUDE.md template content
+  systemPrompt?: string;
+  agentSeeds?: Record<string, string>;
+  features?: string[];     // Rust feature flags needed
+}
+
+interface AgentTab {
+  id: string;
+  label: string;
+  builtIn?: string;        // "chat" | "board" | "skills" | "files" | "connections" | "context" | "routines" | "channels" | "events" | "learnings"
+  customComponent?: string;
+  badge?: "activity" | "none";
+}
+```
+
+**Built-in agents** (9): Default, Project Manager, Meeting Assistant, Research Agent, Data Analyst, Code Reviewer, DevOps, Content Writer, Customer Support. Located in `app/src/agents/builtin/`.
+
+**Installed agent definitions:** loaded from `~/.houston/agents/{id}/manifest.json`. Installed definitions with the same ID as a builtin override the builtin (deduplication in `loader.ts`).
+
+**Agent creation** seeds CLAUDE.md from the agent definition's `claudeMd` field. If `claudeMd` is not set, a generic template is used.
+
+### Activity / Board Tab
+
+The "Activity" tab uses `@houston-ai/board`'s `AIBoard` — a higher-level component that combines `KanbanBoard` + `KanbanDetailPanel` + `ChatPanel`. Each card represents an activity backed by `.houston/activity.json`, and clicking a card opens a chat panel with that conversation's history. The app's `board-tab.tsx` is a thin store wrapper (~140 lines) connecting TanStack Query hooks and Tauri commands to `AIBoard` props.
+
+**`AIBoard` props:** `items`, `feedItems` (keyed by session key), `isLoading`, `onCreateConversation` (returns activity ID), `onSendMessage`, `onLoadHistory`, `onDelete`, `onApprove`, `onSelect`, `selectedId`.
+
+**Status transitions:** When a session completes, the `useSessionEvents` hook updates the activity to `"needs_you"`. The `ActivityChanged` event emitted by the Rust update command auto-invalidates TanStack Query caches, so the board refreshes automatically.
+
+Columns can include an `onAdd` callback, rendering a "+" button in the column header to create activities directly from the board.
+
+### ChatSidebar (Progress Tracking)
+
+`ChatSidebar` from `@houston-ai/chat` is a props-driven panel that displays:
+- **Progress steps** — extracted from `update_progress` tool calls in the feed, or explicitly passed via `progressSteps` prop
+- **Channels list** — connected messaging channels with status dots
+
+Used alongside `ChatPanel` in the app's chat tab layout.
+
+### `.houston/prompts/` Convention
+
+Agent prompts are stored in `.houston/prompts/` and assembled at runtime into the system prompt:
+
+```
+.houston/prompts/
+  system.md              -- Base system prompt (editable in Context tab)
+  self-improvement.md    -- Self-improvement guidance (editable)
+```
+
+**System prompt assembly order** (in `agent.rs`):
+1. `.houston/prompts/system.md` — base prompt
+2. `.houston/prompts/self-improvement.md` — learning directives
+3. `.houston/memory/` — learnings snapshot
+4. `.agents/skills/` — skills index (skill.sh / Claude Code convention)
+5. `CLAUDE.md` — agent instructions
+
+Both prompt files are seeded on agent creation via `seed_file()` (write-once, never overwrite).
+
+---
+
+## Agent Convention (`.houston/` folder)
 
 Every Houston app project stores agent-visible data in a `.houston/` folder alongside the project root. Agent-visible data lives in files, not SQLite.
 
@@ -57,28 +197,58 @@ Every Houston app project stores agent-visible data in a `.houston/` folder alon
 ### File structure
 
 ```
-~/Documents/{AppName}/{ProjectName}/
+~/.houston/workspaces/{WorkspaceName}/{AgentName}/
   .houston/
-    tasks.json          -- Task[] (id, title, description, status, claude_session_id)
+    agent.json          -- AgentMeta (id, manifest_id, created_at, last_opened_at)
+    activity.json       -- Activity[] (id, title, description, status, claude_session_id, updated_at?)
     routines.json       -- Routine[] (id, name, description, trigger_type, trigger_config, status, approval_mode, claude_session_id)
     channels.json       -- ChannelEntry[] (id, channel_type, name, token)
     goals.json          -- Goal[] (id, title, status)
-    skills/             -- One .md file per skill (instructions + learnings sections)
-      research.md
-      writing.md
-    log.jsonl           -- Append-only session audit trail (session_id, task_id, status, duration_ms, cost_usd, timestamp)
+    prompts/            -- Editable system prompt components
+      system.md         -- Base system prompt
+      self-improvement.md -- Self-improvement guidance
+    log.jsonl           -- Append-only session audit trail (session_id, activity_id, status, duration_ms, cost_usd, timestamp)
     config.json         -- ProjectConfig (name, claude_model, claude_effort)
-  .claude_session_id    -- Persisted session ID for --resume across app restarts
+  .agents/
+    skills/             -- One directory per skill (skill.sh / Claude Code convention)
+      research/
+        SKILL.md        -- YAML frontmatter (name, description, version, tags) + body
+      writing/
+        SKILL.md
+  .claude/
+    skills/             -- Symlinks to ../../.agents/skills/<name> so Claude Code discovers skills natively
+      research -> ../../.agents/skills/research
+      writing -> ../../.agents/skills/writing
+  CLAUDE.md             -- Agent instructions (agent root)
+    sessions/
+      {session_key}.sid -- One file per conversation, stores its Claude session id for --resume
 ```
 
-### Task statuses
+**Skills format & discovery:** Skills live at `.agents/skills/<name>/SKILL.md` — the skill.sh convention, also what Claude Code looks for. Houston mirrors each skill as a symlink under `.claude/skills/<name>` so Claude Code picks them up natively. Flat `.md` files dropped directly under `.agents/skills/` are auto-migrated into `<name>/SKILL.md` directory layout on the next `list_skills` call.
+
+### Activity statuses
 `"queue"`, `"running"`, `"needs_you"`, `"done"`, `"cancelled"`
 
 ### Key design decisions
-- **Agents read/write files directly** — no CLI intermediary. Apps use `workspace_store` Tauri commands.
+- **Agents read/write files directly** — no CLI intermediary. Apps use `agent_store` Tauri commands.
 - **Runtime state stays in memory** — channel connection status, message counts are not persisted to `.houston/`.
 - **All write operations use atomic temp-file + rename** to prevent corruption.
 - **SQLite is minimal** — only `chat_feed` (conversation replay) and `preferences` (app settings) remain as permanent tables.
+
+### AI-Native Reactivity
+
+Houston is an AI-native workspace. **Users and LLMs are equal participants** — both can read and write all workspace data, and all changes from either must be immediately visible to both.
+
+**Two writers to agent files:**
+1. **The frontend** (via Tauri commands) — user clicks "Create Activity" -> Tauri command -> Rust writes file
+2. **Claude CLI agents** (direct file writes) — agent decides to install a skill -> writes directly to `.agents/skills/<name>/SKILL.md`
+
+**Three-layer reactivity stack:**
+1. **TanStack Query (frontend)** — all `.houston/` data fetching uses `useQuery` with query keys like `["activity", agentPath]`. Automatic dedup, background refresh, stale-while-revalidate.
+2. **Event emission on Tauri command writes (Rust)** — `write_skill()` emits `SkillsChanged`, `create_activity()` emits `ActivityChanged`, etc. A global listener invalidates the matching query key.
+3. **File watcher on `.houston/` (Rust, `notify` crate)** — catches agent writes that bypass Tauri commands. Emits the same events as layer 2. Debounced to avoid noise.
+
+**The rule:** Never build a feature where the agent can change data but the UI won't reflect it until manual refresh. If it's in `.houston/`, it must be reactive.
 
 ---
 
@@ -109,8 +279,8 @@ The hero package. Drop-in chat experience for Claude Code / Codex sessions.
 
 | Component | What it does |
 |-----------|-------------|
-| `ChatPanel` | Full chat: messages, streaming, thinking, tools, input — one component |
-| `ChatInput` | Input with send/stop/mic states, auto-expand textarea |
+| `ChatPanel` | Full chat: messages, streaming, thinking, tools, input — one component. Forwards composer controlled props through to `ChatInput`. |
+| `ChatInput` | Composer with send/stop/mic states, auto-expand textarea, file attachments via the + button **and** drag-and-drop (drop target is the whole `ChatPanel`). Text and attachments can be controlled via `value`/`onValueChange` and `attachments`/`onAttachmentsChange`, or left uncontrolled. Duplicate files (same name+size+mtime) are silently deduped; the library surfaces a `"File already in chat"` message via the optional `onNotice` callback so the app can show a toast. |
 | `ToolActivity` | Collapsing tool call list with spinners and elapsed time |
 | `ProgressPanel` | Panel for displaying multi-step progress (pairs with `useProgressSteps`) |
 | `feedItemsToMessages()` | Converts Claude CLI FeedItems -> ChatMessages (auto-extracts `[Channel]` prefix into `ChatMessage.source`) |
@@ -123,6 +293,7 @@ The hero package. Drop-in chat experience for Claude Code / Codex sessions.
 | `Suggestion` | Horizontal scrollable suggestion pills |
 | `PromptInput` | Complex input system with file upload, screenshots, attachments |
 | `Typewriter` | Character-by-character text reveal animation |
+| `ChatSidebar` | Props-driven sidebar showing progress steps + channels list (pairs with ChatPanel) |
 
 **Progress tracking:**
 - `useProgressSteps()` hook — manages multi-step progress state. Returns `{ steps, addStep, updateStep, clearSteps }`.
@@ -133,13 +304,79 @@ The hero package. Drop-in chat experience for Claude Code / Codex sessions.
 <ChatPanel
   sessionKey="session-1"
   feedItems={items}
-  onSend={(text) => sendToAgent(text)}
+  onSend={(text, files) => sendToAgent(text, files)}
   isLoading={isStreaming}
   renderMessageAvatar={(msg) =>
     msg.source ? <ChannelAvatar source={msg.source} /> : undefined
   }
 />
 ```
+
+**Composer attachments — controlled mode:**
+When the parent owns composer state (e.g. to scope file uploads to a
+specific conversation id), pass `value`/`onValueChange` and
+`attachments`/`onAttachmentsChange`. The Houston app does this in
+`chat-tab.tsx` so that uploaded files can be persisted under
+`<app cache>/houston/attachments/agent-<id>/` before sending.
+
+```tsx
+const [text, setText] = useState("")
+const [files, setFiles] = useState<File[]>([])
+
+<ChatPanel
+  value={text} onValueChange={setText}
+  attachments={files} onAttachmentsChange={setFiles}
+  onSend={async () => {
+    const paths = await tauriAttachments.save(`agent-${id}`, files)
+    sendToAgent(withAttachmentPaths(text, paths))
+    setText(""); setFiles([])
+  }}
+  ...
+/>
+```
+
+**Drop zone is panel-wide, not composer-only:**
+The drag-and-drop target is `ChatPanel`'s root container, not just the
+composer. An `Empty`-style overlay (`bg-white/80 backdrop-blur-sm`) with a
+`FilesIcon`, "Add anything" title, and "Drop your files in here to add it
+to the conversation" description is rendered while a file drag is over the
+panel. Implementation uses a depth-counted `useFileDropZone` hook so the
+overlay only disappears when the drag actually leaves the outer container.
+Dropped files flow through the same controlled-attachments path as the +
+button, including dedupe.
+
+**Tauri gotcha — window-level drag-drop must be disabled:**
+Tauri 2's webview intercepts OS drag-drop at the window level by default
+and never forwards it to the DOM, so HTML `ondrop` handlers never fire.
+The fix is `"dragDropEnabled": false` in `app/src-tauri/tauri.conf.json`
+under `app.windows[0]`. This has to be set at the window config level,
+not per-component. Without it drag-and-drop silently does nothing.
+
+**Chat composer attachments cache (app convention):**
+- Files attached in the composer are persisted by Rust under
+  `<app cache dir>/houston/attachments/<scope_id>/<filename>`
+  via the `save_attachments` Tauri command (base64 over IPC).
+- `scope_id` is `agent-<agent-id>` for the main chat tab and
+  `activity-<activity-id>` for board/AIBoard conversations.
+- The absolute paths returned by `save_attachments` are appended to the
+  prompt sent to Claude as `[User attached these files. Read them with
+  the Read tool if needed: ...]`. Claude consumes them via its built-in
+  `Read` tool — there is no Claude CLI flag for direct file attachment.
+- Files survive app restarts so the user can attach, walk away, come
+  back, and Claude can still read the original paths via `--resume`.
+- Cleanup: `useDeleteActivity`, `handleDelete` (board), and
+  `useAgentStore.delete` all call `tauriAttachments.delete(scope_id)`
+  so attachments die with their owning conversation/agent.
+
+**ChatSidebar is fully props-driven:**
+```tsx
+<ChatSidebar
+  feedItems={feedItems}
+  channels={[{ id: "1", name: "Main", type: "telegram", status: "connected" }]}
+  onAddChannel={() => openChannelDialog()}
+/>
+```
+Types: `ChatSidebarChannel` (id, name, type, status?). Auto-extracts progress from feed items via `useProgressSteps` + tool-step fallback. Accepts optional `progressSteps` prop for explicit control.
 
 **Channel-aware messaging:** `ChatMessage.source` is auto-extracted from `[ChannelName]` prefixes in user messages. `ChannelAvatar` supports `"telegram"`, `"slack"`, and any custom string source.
 
@@ -150,15 +387,19 @@ Kanban board with animated cards that glow when AI agents are running.
 |-----------|-------------|
 | `KanbanBoard` | Configurable kanban — accepts columns + items, filters by status |
 | `KanbanColumn` | Animated card list with Framer Motion enter/exit transitions |
-| `KanbanCard` | Status-aware card with running glow animation (conic gradient) |
+| `KanbanCard` | Status-aware card with running glow, optional `group` label above title |
 | `KanbanDetailPanel` | Right panel with header + children slot for chat |
+| `AIBoard` | Opinionated board: kanban + split-view chat. Supports `onLoadHistory` for persisted chat hydration |
+| `ConversationList` | Props-driven list of `ConversationEntry` items with status badges and relative timestamps |
+
+Types: `KanbanItem` (id, title, subtitle, group, status, updatedAt, icon, metadata), `ConversationEntry` (id, title, status, type, sessionKey, updatedAt, agentPath, agentName), `KanbanColumn`.
 
 ### @houston-ai/layout
 App shell components.
 
 | Component | What it does |
 |-----------|-------------|
-| `AppSidebar` | Item switcher (projects, workspaces) with add/delete |
+| `AppSidebar` | Item switcher (projects, agents) with add/delete |
 | `TabBar` | Configurable tabs with badges and action/menu slots |
 | `SplitView` | Resizable two-panel layout (default 55/45 split) |
 | `Resizable` | Low-level resizable panel primitives |
@@ -176,13 +417,13 @@ Channel and service connection management.
 
 Types: `ChannelType` ("slack" | "telegram"), `ChannelStatus` ("disconnected" | "connecting" | "connected" | "error"), `ChannelConnection` (id, type, name, status, config, lastActiveAt, messageCount, error).
 
-### @houston-ai/workspace
+### @houston-ai/agent
 macOS Finder-style file management components.
 
 | Component | What it does |
 |-----------|-------------|
 | `FilesBrowser` | Finder list-view clone: sortable columns (Name, Date Modified, Size, Kind), disclosure chevrons, macOS file icons, alternating row stripes, selection highlight, right-click context menu, internal drag-and-drop (move files between folders), external file import from OS, status bar |
-| `InstructionsPanel` | Editable workspace files as labeled textareas with auto-save on blur |
+| `InstructionsPanel` | Editable agent files as labeled textareas with auto-save on blur |
 | `NewFolderInput` | Inline folder creation row styled as a selected folder |
 | `FileMenu` | Lightweight right-click context menu (Open, Show in Finder, Move to Trash) |
 
@@ -202,20 +443,18 @@ Utilities: `formatSize()`, `formatFinderDate()`, `getKind()` — Finder-style fo
 ## Rust Crates
 
 ### houston-db
-Database layer (libsql/SQLite). Minimal — most persistence lives in file-based `.houston/` workspace storage.
+Database layer (libsql/SQLite). Minimal — most persistence lives in file-based `.houston/` agent storage.
 
-**Permanent modules:**
-- `repo_chat_feed` — the only data table. Unified conversation table for UI replay on app restart.
+**Modules:**
+- `repo_chat_feed` — the chat_feed table. Session-keyed by `claude_session_id` only. No legacy v1 `project_id`/`feed_key` columns.
+- `repo_search` — FTS5 search over chat_feed by session id.
 
 **Chat feed persistence** (`repo_chat_feed.rs`):
-- v1 methods (project_id + feed_key keyed): `add_chat_feed_item()`, `list_chat_feed()`, `clear_chat_feed()`
-- Session-keyed methods: `add_chat_feed_item_by_session()`, `list_chat_feed_by_session()`, `clear_chat_feed_by_session()`
+- `add_chat_feed_item_by_session(claude_session_id, feed_type, data_json, source)`
+- `list_chat_feed_by_session(claude_session_id)`
+- `clear_chat_feed_by_session(claude_session_id)`
 
-**Legacy modules** (kept for backward compat):
-- `repo_projects`, `repo_issues`, `repo_issue_deps`, `repo_issues_update`, `issue_types`, `models`
-- Re-exports: `Database`, `IssueStatus`, `Issue`, `Project`, `Session`, `SessionEvent`, `ChatFeedRow`
-
-**Deleted repos** (legacy): `repo_routines`, `repo_routine_runs`, `repo_session_events`, `repo_sessions`, `repo_issue_feed`
+**Re-exports:** `Database`, `ChatFeedRow`, `SearchResult`, `SessionMetadata`, `SessionSearchResult`, `sanitize_fts_query`.
 
 ### houston-sessions
 Claude CLI session management. Spawns `claude -p --output-format stream-json`, parses NDJSON output, manages concurrency.
@@ -223,7 +462,7 @@ Claude CLI session management. Spawns `claude -p --output-format stream-json`, p
 **Provides:** `SessionManager`, `ClaudeEvent`, `FeedItem`, `StreamAccumulator`, `claude_path`, concurrency semaphores.
 
 ### houston-tauri
-Tauri-specific helpers. The largest crate — provides session lifecycle, workspace persistence, channel management, and app state.
+Tauri-specific helpers. The largest crate — provides session lifecycle, agent persistence, channel management, and app state.
 
 | Module | What it provides |
 |--------|-----------------|
@@ -232,17 +471,18 @@ Tauri-specific helpers. The largest crate — provides session lifecycle, worksp
 | `supervisor.rs` | Session supervisor for concurrent Claude sessions |
 | `paths.rs` | `expand_tilde()` — resolves `~` in user-facing paths |
 | `chat_session.rs` | `ChatSessionState` — `Arc<Mutex<Option<String>>>` for session ID tracking. Enables `--resume` for conversation continuity. |
-| `agent_sessions.rs` | `AgentSessionMap` — per-agent session state with disk persistence. Loads/saves `.claude_session_id` from workspace folder. Conversations survive app restarts. |
-| `workspace.rs` | `seed_file()` (write-once templates), `build_system_prompt()` (assemble from workspace files), `list_files()` / `read_file()` |
-| `workspace_commands.rs` | Pre-built Tauri commands for file operations: `list_project_files`, `open_file`, `reveal_file`, `delete_file`, `import_files`, `create_workspace_folder`, `reveal_workspace`, `write_file_bytes`, `read_project_file`, `load_chat_feed`, `load_session_feed` |
-| `workspace_store/` | File-backed CRUD for `.houston/` workspace data. `WorkspaceStore` struct + 23 Tauri commands. Sub-modules: tasks, routines, goals, channels, skills, log, config, types, helpers, commands/ |
-| `session_runner.rs` | `spawn_and_monitor()` — generic session lifecycle: spawn Claude CLI, emit events, track session ID, persist feed items, write `.claude_session_id` to disk. Auto-calls `claude_path::init()`. Returns `JoinHandle<SessionResult>`. |
-| `session_queue.rs` | `SessionQueue` — message queue for sequential Claude sessions with automatic `--resume`. Messages queue while Claude is busy and process in order. |
+| `agent_sessions.rs` | `AgentSessionMap` — per-`(agent_path, session_key)` session state with disk persistence. Loads/saves `.houston/sessions/{session_key}.sid` under the agent folder. Every conversation is independently scoped — there is no shared "main" file. |
+| `agent.rs` | `seed_file()` (write-once templates), `build_system_prompt()` (assemble from agent files), `list_files()` / `read_file()` |
+| `agent_commands.rs` | Pre-built Tauri commands for file operations: `list_project_files`, `open_file`, `reveal_file`, `delete_file`, `import_files`, `create_agent_folder`, `reveal_agent`, `write_file_bytes`, `read_project_file`, `load_chat_feed`, `load_session_feed` |
+| `agent_store/` | File-backed CRUD for `.houston/` agent data. `AgentStore` struct + 23 Tauri commands. Sub-modules: activity, routines, goals, channels, skills, log, config, types, helpers, commands/ |
+| `session_runner.rs` | `spawn_and_monitor()` — generic session lifecycle: spawn Claude CLI, emit `HoustonEvent::FeedItem { agent_path, session_key, item }` and `HoustonEvent::SessionStatus { agent_path, session_key, ... }`, persist feed items by `claude_session_id`, write `.houston/sessions/{session_key}.sid` to disk. Auto-calls `claude_path::init()`. Returns `JoinHandle<SessionResult>`. |
 | `channel_manager.rs` | `ChannelManager` — starts/stops channel adapters, routes all incoming messages into one `mpsc::UnboundedReceiver<RoutedMessage>`. |
 | `tray.rs` | System tray integration utilities |
+| `agent_watcher.rs` | File watcher on `.houston/` directory for agent file changes |
 
-**workspace_store Tauri commands (23 total):**
-Tasks: `list_tasks`, `create_task`, `update_task`, `delete_task`
+**agent_store Tauri commands (25 total):**
+Conversations: `list_conversations`, `list_all_conversations` (cross-agent aggregation)
+Activity: `list_activity`, `create_activity`, `update_activity`, `delete_activity`
 Routines: `list_routines`, `create_routine`, `update_routine`, `delete_routine`
 Goals: `list_goals`, `create_goal`, `update_goal`, `delete_goal`
 Channels: `list_channels_config`, `add_channel_config`, `remove_channel_config`
@@ -283,7 +523,7 @@ Agent memory store with vector search and persistence. Still in the workspace (`
 ### Dependency Rules
 - `@houston-ai/core` has NO internal package dependencies
 - All other packages peer-depend on `@houston-ai/core`
-- No package depends on another non-core package
+- No package depends on another non-core package (exception: `@houston-ai/board` peer-depends on `@houston-ai/chat` and `@houston-ai/layout` for the `AIBoard` composition)
 - React is always a peer dependency, never a direct dependency
 
 ### Key Dependencies
@@ -334,34 +574,29 @@ Between packages, use **package imports**: `import { cn, Button } from "@houston
 ### Session Runner (`spawn_and_monitor`)
 ```rust
 let handle = spawn_and_monitor(
-    &app_handle, session_key, prompt, resume_id,
+    &app_handle, agent_path, session_key, prompt, resume_id,
     working_dir, system_prompt,
     Some(chat_state),   // ChatSessionState for session ID tracking
-    Some(PersistOptions { db, project_id, feed_key, source,
-        claude_session_id: None }),  // set automatically on SessionId update
+    Some(PersistOptions {
+        db,
+        source,
+        user_message: Some(prompt.clone()),   // persisted by runner on SessionId arrival
+        claude_session_id: None,              // set automatically on SessionId update
+    }),
+    Some(pid_map),
 );
 ```
-Auto-calls `claude_path::init()` (idempotent via `OnceLock`). Auto-emits `HoustonEvent::FeedItem` and `HoustonEvent::SessionStatus`. Tracks session ID via `ChatSessionState`. Persists non-streaming feed items to DB using session-keyed persistence when `claude_session_id` is set, falls back to project-keyed. Writes `.claude_session_id` to the working directory for `--resume` on restart. Returns `SessionResult { response_text, claude_session_id, error }`.
-
-### Session Queue
-```rust
-let queue = SessionQueue::new(app_handle, SessionQueueConfig {
-    session_key, working_dir, system_prompt,
-    model: None, effort: None,
-    chat_state: Some(state), persist: Some(opts),
-});
-queue.send("Do something").await;  // queues if Claude is busy
-```
-Sequential message processing with automatic `--resume`. Messages queue up while Claude is running and process in order. Writes `.claude_session_id` to disk.
+Auto-calls `claude_path::init()` (idempotent via `OnceLock`). Emits `HoustonEvent::FeedItem { agent_path, session_key, item }` and `HoustonEvent::SessionStatus { agent_path, session_key, ... }` — events carry `agent_path` so the frontend feed store can scope buckets per agent, making cross-agent message bleeding structurally impossible. Persists feed items to DB keyed by `claude_session_id` once the session ID arrives; the initial user message is buffered in `PersistOptions.user_message` and written at the same moment. Writes `.houston/sessions/{session_key}.sid` under the agent folder for `--resume` on restart. Returns `SessionResult { response_text, claude_session_id, error }`.
 
 ### Agent Session Map
 ```rust
 let session_map: AgentSessionMap = Default::default();
-let state = session_map.get_for_agent("project-1", &app_state).await;
-// On first access, loads .claude_session_id from disk
-// After session completes:
-session_map.persist("project-1", &app_state).await;
+let state = session_map
+    .get_for_session(&format!("{agent_path}:{session_key}"), &agent_path, &session_key)
+    .await;
+// On first access, loads .houston/sessions/{session_key}.sid from disk
 ```
+One `ChatSessionState` per `(agent_path, session_key)` pair. No shared "main" file — every conversation is independently scoped. `remove_agent(&format!("{agent_path}:"))` drops all in-memory state for a deleted agent.
 
 ### Channel Manager
 ```rust
@@ -380,22 +615,22 @@ Pure function for smart-merging streaming FeedItems:
 - Final variants replace their streaming predecessors
 - Everything else appended
 
-### Workspace Helpers
+### Agent Helpers
 - `seed_file(dir, name, content)` — write once, never overwrite user edits
-- `build_system_prompt(dir, base, bootstrap_name, files)` — assemble prompt from workspace files
+- `build_system_prompt(dir, base, bootstrap_name, files)` — assemble prompt from agent files
 - `list_files(dir, known)` / `read_file(dir, name, allowed)` — UI-safe file enumeration
 
-### WorkspaceStore
+### AgentStore
 ```rust
-let store = WorkspaceStore::new(&project_folder);
+let store = AgentStore::new(&project_folder);
 store.ensure_houston_dir()?;            // creates .houston/ if missing
-let tasks = store.list_tasks()?;     // reads .houston/tasks.json
-let task = store.create_task("Title", "Desc")?;
-store.update_task(&task.id, TaskUpdate { status: Some("done".into()), ..Default::default() })?;
-store.delete_task(&task.id)?;
+let items = store.list_activity()?;     // reads .houston/activity.json
+let item = store.create_activity("Title", "Desc")?;
+store.update_activity(&item.id, ActivityUpdate { status: Some("done".into()), ..Default::default() })?;
+store.delete_activity(&item.id)?;
 // Same CRUD pattern for routines, goals, channels, skills, log, config
 ```
-All operations use atomic temp-file + rename to prevent corruption. Types defined in `workspace_store::types` — all derive `Serialize + Deserialize`.
+All operations use atomic temp-file + rename to prevent corruption. Types defined in `agent_store::types` — all derive `Serialize + Deserialize`.
 
 ---
 
@@ -412,6 +647,25 @@ All operations use atomic temp-file + rename to prevent corruption. Types define
 
 ---
 
+## Logging & Debugging
+
+All logging writes to files at `~/.houston/logs/`:
+
+| File | Source | What |
+|------|--------|------|
+| `backend.log` | `tracing` (Rust) | Session I/O, agent store, channels, watcher, scheduler, Composio |
+| `frontend.log` | `logger.ts` (TS) | console.error/warn, React crashes, Tauri command errors |
+
+**Rust:** Uses `tracing` macros (`tracing::info!`, `tracing::error!`, etc.) everywhere. Initialized in `app/src-tauri/src/logging.rs` with `tracing-subscriber` + daily rolling file appender. Default filter: `info` globally, `debug` for `houston_sessions` and `houston_tauri`. Override with `RUST_LOG` env var.
+
+**Frontend:** `logger` from `app/src/lib/logger.ts` — `logger.error()`, `logger.warn()`, `logger.info()`, `logger.debug()`. `console.error` and `console.warn` are monkey-patched at startup to also write to `frontend.log`.
+
+**Bug reports:** "Report bug" on error toasts attaches the last 50 lines from both log files via the `read_recent_logs` Tauri command.
+
+**Tauri commands:** `write_frontend_log(level, message, context)`, `read_recent_logs(lines?)`.
+
+---
+
 ## Gotchas
 
 1. **Tailwind v4 has no config file.** Don't create `tailwind.config.ts`. All config is in CSS.
@@ -422,9 +676,9 @@ All operations use atomic temp-file + rename to prevent corruption. Types define
 6. **`expand_tilde()` is required for user-facing paths.** Rust's `PathBuf` does not expand `~`.
 7. **`send_typing()` is a default no-op on Channel trait.** Only Telegram implements it. Safe to call on any channel.
 8. **`claude_path::init()` is automatic.** Called by `spawn_and_monitor()` (idempotent via `OnceLock`). Apps don't need to call it manually.
-9. **Session ID persists to disk.** Both `spawn_and_monitor` and `session_queue` write `.claude_session_id` to the workspace folder. `AgentSessionMap` loads it on startup for `--resume`.
-10. **Agents read/write `.houston/` files directly.** Apps use `workspace_store` Tauri commands. There is no CLI intermediary for workspace data.
-11. **Legacy DB repos are deprecated.** `repo_projects` and `repo_issues` exist for backward compat. Do not add new features to them.
+9. **Session ID persists per conversation.** `spawn_and_monitor` writes `.houston/sessions/{session_key}.sid` under the agent folder for every session. There is no shared "main" `.claude_session_id` file — every session_key is independently scoped. `AgentSessionMap` loads the per-session file on first access for `--resume`.
+10. **Agents read/write `.houston/` files directly.** Apps use `agent_store` Tauri commands. There is no CLI intermediary for agent data.
+11. **Session key → (agent_path, session_key) scoping.** `HoustonEvent::FeedItem` and `SessionStatus` events carry both `agent_path` and `session_key`. The frontend feed store is nested `Record<agentPath, Record<sessionKey, FeedItem[]>>` so cross-agent bleeding is structurally impossible. Never use a bare session_key (like the old `"main"`) as a global namespace.
 12. **`useSessionEvents` vs `useHoustonEvent`:** Prefer `useSessionEvents` for session-related events (FeedItem, SessionStatus, Toast). It uses ref-based handlers to avoid the race condition where handler recreation tears down and re-registers the listener, causing missed events. `useHoustonEvent` is lower-level for one-off event subscriptions.
 
 ---

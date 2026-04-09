@@ -41,7 +41,7 @@ export function KanbanCard({
   return (
     <>
       <div
-        onClick={onSelect}
+        onClick={(e) => { e.stopPropagation(); onSelect() }}
         className={cn(
           "group/card relative rounded-lg bg-background px-3 py-2.5 cursor-pointer transition-all duration-200",
           isRunning
@@ -60,9 +60,19 @@ export function KanbanCard({
           </button>
         )}
 
+        {item.group && (
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            {item.group}
+          </span>
+        )}
         <p className="text-sm text-foreground line-clamp-2 pr-5">
           {item.title}
         </p>
+        {item.description && (
+          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+            {item.description}
+          </p>
+        )}
 
         {/* Footer: avatar + subtitle + actions */}
         <div className="flex items-center justify-between mt-2.5">
@@ -103,7 +113,7 @@ export function KanbanCard({
         open={showConfirm}
         onOpenChange={setShowConfirm}
         title={`Delete "${item.title}"?`}
-        description="This task and its history will be permanently removed."
+        description="This item and its history will be permanently removed."
         onConfirm={confirmDelete}
       />
     </>

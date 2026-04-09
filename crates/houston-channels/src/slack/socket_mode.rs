@@ -107,9 +107,9 @@ pub async fn listen_socket_mode(
             None => continue,
         };
 
-        // Skip non-message events and message subtypes (edits, joins, etc.).
+        // Skip non-message events, message subtypes (edits, joins), and bot messages.
         let event_type = event.event_type.as_deref().unwrap_or("");
-        if event_type != "message" || event.subtype.is_some() {
+        if event_type != "message" || event.subtype.is_some() || event.bot_id.is_some() {
             continue;
         }
 
@@ -138,6 +138,7 @@ pub async fn listen_socket_mode(
             text: text_content,
             timestamp: Utc::now(),
             reply_to: event.thread_ts,
+            message_ts: event.ts,
             attachments,
         };
 

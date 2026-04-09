@@ -6,13 +6,22 @@ STOP - FOLLOW THIS PROTOCOL FOR EVERY INTERACTION
 
 # Claude Session Protocol — Houston
 
-### MANDATORY DEBUGGING RULE
+### MANDATORY DEBUGGING RULE — USE THE LOG FILES
 When a bug occurs and the fix isn't immediately obvious: **NEVER guess.** Always:
-1. Add error logging (try/catch, window.onerror, console.error, eprintln!, etc.)
-2. Tell the user what to run and what output to share back
-3. Fix based on the ACTUAL error, not assumptions
+1. **Read the log files first** — they contain all backend and frontend errors:
+   - **Backend:** `~/.houston/logs/backend.log` (Rust tracing output — sessions, agent store, channels, watcher, etc.)
+   - **Frontend:** `~/.houston/logs/frontend.log` (JS console.error/warn, React crashes, Tauri command failures)
+2. Diagnose from the ACTUAL error in the logs, not assumptions
+3. If the logs don't have enough info, add targeted `tracing::debug!()` (Rust) or `logger.debug()` (TS from `lib/logger.ts`) to narrow it down
+4. **Never ask the user to copy-paste terminal output** — read the log files directly
 
-Guessing wastes time. Getting the real error is always faster.
+### Logging System Reference
+- **Rust:** All logging uses `tracing` macros (`tracing::info!`, `tracing::error!`, etc.) — output goes to `backend.log` via `tracing-subscriber` with daily rolling file appender
+- **Frontend:** `logger` from `app/src/lib/logger.ts` — `logger.error()`, `logger.warn()`, `logger.info()`, `logger.debug()`. Also, `console.error` and `console.warn` are patched to auto-write to `frontend.log`
+- **Bug reports:** "Report bug" button on error toasts automatically attaches the last 50 lines from both log files
+- **Log levels (Rust):** Configurable via `RUST_LOG` env var. Default: `info` globally, `debug` for `houston_sessions` and `houston_tauri`
+
+Guessing wastes time. Reading the logs is always faster.
 
 ### MANDATORY STOPPING RULES
 Whenever this protocol tells you to "wait for approval", "wait for user feedback", or "ask the user", you MUST IMMEDIATELY STOP GENERATING YOUR RESPONSE.
@@ -34,10 +43,10 @@ Houston is a monorepo for building AI agent desktop apps. It contains both the r
 | Directory | What |
 |-----------|------|
 | `packages/` | React UI packages (`@houston-ai/*`) — design system, chat, board, layout, etc. |
-| `crates/` | Rust crates (`houston-*`) — session management, database, workspace persistence, Tauri integration |
+| `crates/` | Rust crates (`houston-*`) — session management, database, agent persistence, Tauri integration |
 | `app/` | The Houston app — AI work delegation desktop app (Tauri 2) |
 | `showcase/` | Component showcase — live docs & demos for all @houston-ai components |
-| `create-app/` | Scaffolding template for new Houston experiences |
+| `create-app/` | Scaffolding template for new Houston agents |
 
 **Core relationship:** `packages/` and `crates/` are the reusable library. `app/` consumes it and serves as both a real product and living documentation.
 
@@ -222,6 +231,17 @@ Never import app/ types into packages/. Use generic types (BoardItem, FeedItem, 
 ### No `@/` path aliases (in packages/)
 Use relative imports within a package. Use package imports (`@houston-ai/core`) between packages. Path aliases break in published libraries.
 
+## AI-Native Reactivity (MANDATORY)
+
+Houston builds **AI-native workspaces**. Users and LLMs are equal participants — both can read and write all workspace data, and **all changes from either must be immediately visible to both.**
+
+### Rules:
+- **Every data surface must react to file changes**, regardless of who made them (user via UI, agent via file write, external edit)
+- **All `.houston/` data fetching uses TanStack Query** with query invalidation via Tauri events + file watcher. Never use manual load-on-mount-only patterns.
+- **Never build a feature where "the agent can do X but the UI won't show it until refresh"** — this violates the core paradigm
+- **Agent store writes (Rust) must emit events** so the frontend can invalidate queries
+- **The `.houston/` file watcher is architecturally required**, not optional — it catches agent writes that bypass Tauri commands
+
 ## General Rules
 
 ### Think Like a Code Reviewer
@@ -274,7 +294,7 @@ Before ANY edit, ask: "Would this pass code review?"
 1. Work on `claude/wip` branch
 2. Multiple agents commit independently (they touch different files)
 3. Before committing, agents MUST get user approval (Phase 12)
-4. When ready to merge: PR `claude/wip` → `main`, squash merge for clean history
+4. When ready to merge: PR `claude/wip` -> `main`, squash merge for clean history
 5. After merge, reset `claude/wip` from `main`: `git checkout claude/wip && git reset --hard main`
 
 ## Commit Messages
@@ -302,8 +322,8 @@ All packages share ONE version number. Every release bumps ALL packages together
 
 ## Versioning
 - All packages follow semver: `0.x.y`
-- Pre-1.0: breaking changes bump minor (`0.1.0` → `0.2.0`)
-- Bug fixes bump patch (`0.1.0` → `0.1.1`)
+- Pre-1.0: breaking changes bump minor (`0.1.0` -> `0.2.0`)
+- Bug fixes bump patch (`0.1.0` -> `0.1.1`)
 - `1.0.0` when API is stable and publicly committed
 
 ## How to Release
@@ -327,20 +347,21 @@ This script:
 
 ---
 
-# Experience System
+# Agent Definition System
 
-Houston hosts multiple "experiences" — configurable AI agent workspaces.
+Houston hosts multiple "agent definitions" — configurable AI agent manifests.
 
 ## Three Tiers
 1. **JSON-only:** `manifest.json` defines tabs, prompt, colors, icon. Uses built-in @houston-ai components.
 2. **Custom React:** `manifest.json` + `bundle.js` with custom components. Components import @houston-ai as peer deps.
-3. **Custom Rust:** PR a new crate to this repo. Experience declares `features: ["capability"]` in manifest.
+3. **Custom Rust:** PR a new crate to this repo. Agent definition declares `features: ["capability"]` in manifest.
 
 ## Manifest Location
-- Built-in experiences: `app/src/experiences/builtin/`
-- Installed experiences: `~/.houston/experiences/{id}/manifest.json`
+- Built-in agents: `app/src/agents/builtin/`
+- Installed agent definitions: `~/.houston/agents/{id}/manifest.json`
 
-## Workspace Location
+## Agent Location
 - All workspaces: `~/Documents/Houston/{workspace-name}/`
-- Workspace metadata: `.houston/workspace.json`
-- Agent data: `.houston/tasks.json`, `.houston/skills/`, etc.
+- Agent directories: `~/Documents/Houston/{workspace-name}/{agent-name}/`
+- Agent metadata: `.houston/agent.json`
+- Agent data: `.houston/activity.json`, `.agents/skills/<name>/SKILL.md` (skill.sh / Claude Code convention, mirrored to `.claude/skills/<name>` via symlink), etc.

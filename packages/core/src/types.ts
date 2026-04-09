@@ -7,11 +7,20 @@
 export type HoustonEvent =
   | {
       type: "FeedItem";
-      data: { session_key: string; item: { feed_type: string; data: unknown } };
+      data: {
+        agent_path: string;
+        session_key: string;
+        item: { feed_type: string; data: unknown };
+      };
     }
   | {
       type: "SessionStatus";
-      data: { session_key: string; status: string; error: string | null };
+      data: {
+        agent_path: string;
+        session_key: string;
+        status: string;
+        error: string | null;
+      };
     }
   | {
       type: "IssueStatusChanged";
@@ -82,14 +91,58 @@ export type HoustonEvent =
       };
     }
   | {
-      type: "RoutineRunChanged";
-      data: { routine_id: string; run_id: string; status: string };
+      type: "RoutinesChanged";
+      data: { agent_path: string };
     }
   | {
-      type: "RoutinesChanged";
-      data: { project_id: string };
+      type: "RoutineRunsChanged";
+      data: { agent_path: string };
     }
   | {
       type: "ConversationsChanged";
-      data: { project_id: string };
+      data: { project_id: string; agent_path: string };
+    }
+  | {
+      type: "ActivityChanged";
+      data: { agent_path: string };
+    }
+  | {
+      type: "IntegrationsChanged";
+      data: { agent_path: string };
+    }
+  | {
+      type: "SkillsChanged";
+      data: { agent_path: string };
+    }
+  | {
+      type: "LearningsChanged";
+      data: { agent_path: string };
+    }
+  | {
+      type: "ChannelsConfigChanged";
+      data: { agent_path: string };
+    }
+  | {
+      type: "FilesChanged";
+      data: { agent_path: string };
+    }
+  | {
+      type: "ConfigChanged";
+      data: { agent_path: string };
+    }
+  | {
+      type: "ContextChanged";
+      data: { agent_path: string };
+    }
+  | {
+      type: "SlackSyncStarted";
+      data: { agent_path: string; slack_channel_name: string };
+    }
+  | {
+      type: "SlackSyncStopped";
+      data: { agent_path: string };
+    }
+  | {
+      type: "SlackThreadCreated";
+      data: { agent_path: string; session_key: string; thread_ts: string };
     };

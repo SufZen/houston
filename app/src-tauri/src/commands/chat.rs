@@ -1,0 +1,381 @@
+use crate::agent;
+use houston_tauri::agent_sessions::AgentSessionMap;
+use houston_tauri::events::HoustonEvent;
+use houston_tauri::houston_sessions;
+use houston_tauri::paths::expand_tilde;
+use houston_tauri::session_pids::SessionPidMap;
+use houston_tauri::session_runner::PersistOptions;
+use houston_tauri::slack_sync::SlackSyncManager;
+use houston_tauri::state::AppState;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tauri::{Emitter, Manager, State};
+use tokio::io::AsyncWriteExt;
+use tokio::sync::RwLock;
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn send_message(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    agent_sessions: State<'_, AgentSessionMap>,
+    pid_map: State<'_, SessionPidMap>,
+    agent_path: String,
+    prompt: String,
+    session_key: Option<String>,
+    source: Option<String>,
+) -> Result<String, String> {
+    let working_dir = expand_tilde(&PathBuf::from(&agent_path));
+    tracing::info!("[houston:session] send_message agent_path={agent_path} working_dir={}", working_dir.display());
+    if !working_dir.exists() {
+        std::fs::create_dir_all(&working_dir)
+            .map_err(|e| format!("Failed to create agent directory: {e}"))?;
+    }
+    agent::seed_agent(&working_dir)?;
+    let mut system_prompt = agent::build_system_prompt(&working_dir);
+
+    // Append Composio integration guidance to the system prompt.
+    // Agents use the `composio` CLI (not MCP) to access integrations.
+    system_prompt.push_str(
+        "\n\n---\n\n# Integrations — Composio CLI\n\n\
+         For ANY task involving external apps (email, calendar, Slack, GitHub, \
+         etc.), ALWAYS use the `composio` CLI via Bash. Never use MCP tools \
+         for integrations — the CLI is the only supported interface.\n\n\
+         Quick reference:\n\
+         - `composio search \"<what you want to do>\"` — find the right tool\n\
+         - `composio execute <TOOL_SLUG> -d '{ ... }'` — run a tool\n\
+         - `composio execute <TOOL_SLUG> --get-schema` — see required params\n\n\
+         Always search first, then execute.\n\n\
+         ## When an app is not connected\n\n\
+         If `composio execute` fails because no account is linked for that \
+         toolkit, DO NOT open the browser for the user and DO NOT tell them \
+         to go to the Integrations tab. Instead:\n\n\
+         1. Offer to help connect the app right now. Ask in a friendly way, \
+            e.g. \"I'd need you to connect your Gmail first. Want me to help?\"\n\
+         2. If the user says yes, run `composio link <toolkit> --no-wait` via \
+            Bash and parse the JSON output.\n\
+         3. Present the `redirect_url` from that JSON as a markdown link for \
+            the user to click, e.g. `[Connect Gmail](<redirect_url>)`. The \
+            Houston chat renders markdown links as clickable buttons — the \
+            user opens the browser, not you.\n\
+         4. After they tell you they've approved in the browser, retry the \
+            original action.",
+    );
+
+    let source = source.unwrap_or_else(|| "desktop".to_string());
+    let session_key = session_key.ok_or_else(|| "session_key is required".to_string())?;
+    let agent_key = format!("{}:{}", working_dir.to_string_lossy(), session_key);
+    let chat_state = agent_sessions
+        .get_for_session(&agent_key, &agent_path, &session_key)
+        .await;
+    let resume_id = chat_state.get().await;
+    tracing::debug!(
+        "[houston:session] resume_id={:?} for key={}",
+        resume_id, agent_key
+    );
+
+    // If message came from Slack, emit a FeedItem so the Houston UI shows it
+    if source == "slack" {
+        let _ = app_handle.emit(
+            "houston-event",
+            houston_tauri::events::HoustonEvent::FeedItem {
+                agent_path: agent_path.clone(),
+                session_key: session_key.clone(),
+                item: houston_sessions::FeedItem::UserMessage(prompt.clone()),
+            },
+        );
+    }
+
+    // If message came from Houston desktop, mirror it to Slack.
+    // First message creates the thread (user's text as top-level post).
+    // Subsequent messages post as thread replies under the user's identity.
+    if source == "desktop" {
+        let sync_mgr: State<'_, Arc<RwLock<SlackSyncManager>>> = app_handle.state();
+        let agent_path_clone = agent_path.clone();
+        let session_key_clone = session_key.clone();
+        let prompt_clone = prompt.clone();
+        let mgr = sync_mgr.inner().clone();
+        tokio::spawn(async move {
+            let mut mgr = mgr.write().await;
+
+            // Check if thread already exists
+            let existing_ts = mgr.session_for_agent(&agent_path_clone)
+                .and_then(|s| houston_tauri::slack_sync::thread_map::find_thread(
+                    &s.config, &session_key_clone,
+                ))
+                .map(|t| t.thread_ts.clone());
+
+            if let Some(thread_ts) = existing_ts {
+                // Thread exists — post user message as a reply
+                if let Some(session) = mgr.session_for_agent(&agent_path_clone) {
+                    let _ = houston_channels::slack::api::post_message_as(
+                        &session.config.bot_token,
+                        &session.config.slack_channel_id,
+                        &prompt_clone,
+                        Some(&thread_ts),
+                        Some(&session.config.user_name),
+                        session.config.user_avatar.as_deref(),
+                    ).await;
+                }
+            } else {
+                // No thread yet — create one with user's message as top-level post
+                if let Err(e) = mgr.create_thread_for_user_message(
+                    &agent_path_clone, &session_key_clone, &prompt_clone,
+                ).await {
+                    tracing::error!("[slack] failed to create thread: {e}");
+                }
+            }
+        });
+    }
+
+    houston_tauri::session_runner::spawn_and_monitor(
+        &app_handle,
+        agent_path.clone(),
+        session_key.clone(),
+        prompt.clone(),
+        resume_id,
+        working_dir,
+        Some(system_prompt),
+        Some(chat_state),
+        Some(PersistOptions {
+            db: state.db.clone(),
+            source: source.clone(),
+            user_message: Some(prompt),
+            claude_session_id: None,
+        }),
+        Some(pid_map.inner().clone()),
+    );
+
+    Ok(session_key)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn load_chat_history(
+    state: State<'_, AppState>,
+    agent_path: String,
+    session_key: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    let working_dir = expand_tilde(&PathBuf::from(&agent_path));
+    let sid_path = houston_tauri::agent_sessions::session_id_path(&working_dir, &session_key);
+
+    let Some(claude_session_id) = std::fs::read_to_string(&sid_path)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+    else {
+        return Ok(Vec::new());
+    };
+
+    let mut rows = state
+        .db
+        .list_chat_feed_by_session(&claude_session_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    rows.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            serde_json::json!({
+                "feed_type": row.feed_type,
+                "data": serde_json::from_str::<serde_json::Value>(&row.data_json)
+                    .unwrap_or(serde_json::Value::String(row.data_json)),
+            })
+        })
+        .collect())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn read_agent_file(
+    agent_path: String,
+    name: String,
+) -> Result<String, String> {
+    let dir = expand_tilde(&PathBuf::from(&agent_path));
+    let path = dir.join(&name);
+    std::fs::read_to_string(&path).map_err(|e| format!("Failed to read {name}: {e}"))
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn write_agent_file(
+    app_handle: tauri::AppHandle,
+    agent_path: String,
+    name: String,
+    content: String,
+) -> Result<(), String> {
+    let dir = expand_tilde(&PathBuf::from(&agent_path));
+    let path = dir.join(&name);
+    std::fs::write(&path, &content).map_err(|e| format!("Failed to write {name}: {e}"))?;
+    if name == "CLAUDE.md" || name.starts_with(".houston/prompts/") {
+        let _ = app_handle.emit("houston-event", houston_tauri::events::HoustonEvent::ContextChanged {
+            agent_path: agent_path.clone(),
+        });
+    }
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn start_onboarding_session(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    agent_sessions: State<'_, AgentSessionMap>,
+    pid_map: State<'_, SessionPidMap>,
+    agent_path: String,
+    session_key: String,
+) -> Result<(), String> {
+    let working_dir = expand_tilde(&PathBuf::from(&agent_path));
+    agent::seed_agent(&working_dir)?;
+    let mut system_prompt = agent::build_system_prompt(&working_dir);
+
+    system_prompt.push_str(
+        "\n\n---\n\n# Onboarding\n\n\
+         This is a brand new agent with no configuration yet. \
+         Welcome the user and briefly tell them what they can provide to get this agent working:\n\n\
+         - A job description — What role do you want me to perform? \
+           e.g. SDR, Executive assistant, Customer Support Agent, Engineer.\n\
+         - Tools and integrations — Need Gmail or Slack? You can ask me to connect any tool \
+           that has an API or an MCP, and those that don't have one, we'll find a way around.\n\
+         - Routines (anything to run on a schedule)\n\n\
+         Keep it short and warm. End with something like \
+         \"Or if you'd rather skip setup and jump straight in, just tell me what you need — \
+         we can figure it out as we go.\"\n\n\
+         IMPORTANT — Setup validation: Once the user provides their job description, \
+         you MUST write BOTH of these before setup is complete:\n\
+         1. Update CLAUDE.md at the workspace root with the agent's role, responsibilities, \
+            and rules based on what the user described.\n\
+         2. Create at least one skill file in .agents/skills/ \
+            (e.g. .agents/skills/core-workflow.md) with an ## Instructions section covering \
+            the agent's primary workflow. Use the skill.sh convention: each skill is a markdown \
+            file with ## Instructions and ## Learnings sections.\n\n\
+         Do NOT consider setup complete until both CLAUDE.md and at least one skill have been \
+         written. If the user skips the description and jumps straight to a task, still write \
+         a CLAUDE.md and skill based on what you can infer from the task.",
+    );
+
+    let agent_key = format!("{}:{}", working_dir.to_string_lossy(), session_key);
+    let chat_state = agent_sessions
+        .get_for_session(&agent_key, &agent_path, &session_key)
+        .await;
+    let resume_id = chat_state.get().await;
+
+    houston_tauri::session_runner::spawn_and_monitor(
+        &app_handle,
+        agent_path.clone(),
+        session_key.clone(),
+        ".".to_string(),
+        resume_id,
+        working_dir,
+        Some(system_prompt),
+        Some(chat_state),
+        Some(PersistOptions {
+            db: state.db.clone(),
+            source: "desktop".to_string(),
+            user_message: None,
+            claude_session_id: None,
+        }),
+        Some(pid_map.inner().clone()),
+    );
+
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn stop_session(
+    app_handle: tauri::AppHandle,
+    pid_map: State<'_, SessionPidMap>,
+    agent_path: String,
+    session_key: String,
+) -> Result<(), String> {
+    if let Some(pid) = pid_map.remove(&session_key).await {
+        tracing::info!("[houston:session] stopping session {session_key} (pid {pid})");
+        // Kill the Claude CLI process
+        std::process::Command::new("kill")
+            .arg("-TERM")
+            .arg(pid.to_string())
+            .output()
+            .ok();
+
+        // Emit "Stopped by user" so the UI shows a message
+        let _ = app_handle.emit(
+            "houston-event",
+            HoustonEvent::FeedItem {
+                agent_path: agent_path.clone(),
+                session_key: session_key.clone(),
+                item: houston_sessions::FeedItem::SystemMessage(
+                    "Stopped by user".into(),
+                ),
+            },
+        );
+        let _ = app_handle.emit(
+            "houston-event",
+            HoustonEvent::SessionStatus {
+                agent_path,
+                session_key,
+                status: "completed".into(),
+                error: None,
+            },
+        );
+    }
+    Ok(())
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct SummarizeResult {
+    pub title: String,
+    pub description: String,
+}
+
+/// Quick Haiku call to generate a concise title + description for an activity.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn summarize_activity(message: String) -> Result<SummarizeResult, String> {
+    let prompt = format!(
+        "Generate a title and description for this task.\n\
+         Title: max 6 words, concise. Description: 1 short sentence.\n\
+         Return ONLY valid JSON, no markdown fences:\n\
+         {{\"title\": \"...\", \"description\": \"...\"}}\n\n\
+         Task: {message}"
+    );
+
+    let mut cmd = tokio::process::Command::new("claude");
+    cmd.env("PATH", houston_sessions::claude_path::shell_path());
+    cmd.env_remove("CLAUDE_CODE_ENTRYPOINT");
+    cmd.env_remove("CLAUDECODE");
+    cmd.arg("-p")
+        .arg("--model")
+        .arg("haiku")
+        .arg("--output-format")
+        .arg("text")
+        .arg("--allowedTools")
+        .arg("");
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::null());
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Failed to spawn claude: {e}"))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(prompt.as_bytes())
+            .await
+            .map_err(|e| format!("Failed to write prompt: {e}"))?;
+        drop(stdin);
+    }
+
+    let output = child
+        .wait_with_output()
+        .await
+        .map_err(|e| format!("Claude process failed: {e}"))?;
+
+    let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    // Strip markdown code fences if haiku wraps the JSON
+    let json_str = raw
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+
+    serde_json::from_str(json_str)
+        .map_err(|e| format!("Failed to parse response: {e}\nRaw: {raw}"))
+}

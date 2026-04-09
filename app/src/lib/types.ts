@@ -1,6 +1,14 @@
-/** Tab definition in an experience manifest */
-export interface ExperienceTab {
-  /** Tab identifier. Built-in: "chat", "board", "skills", "files", "connections", "context", "routines", "channels", "events", "learnings". Custom: any string. */
+/** A workspace (top-level container, formerly "Space") */
+export interface Workspace {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+/** Tab definition in an agent config */
+export interface AgentTab {
+  /** Tab identifier. Built-in: "chat", "board", "files", "job-description", "integrations", "connections", "routines", "events". Custom: any string. */
   id: string;
   /** Display label in the tab bar */
   label: string;
@@ -8,48 +16,65 @@ export interface ExperienceTab {
   builtIn?: string;
   /** Export name from bundle.js for custom React components */
   customComponent?: string;
-  /** Badge source: "tasks" shows count of active tasks */
-  badge?: "tasks" | "none";
+  /** Badge source: "activity" shows count of active items */
+  badge?: "activity" | "none";
+  /** If true, the tab is non-clickable (shown muted in the tab bar). */
+  disabled?: boolean;
+  /** Optional text chip shown next to the label (e.g. "Soon"). */
+  chip?: string;
 }
 
-/** The experience manifest (manifest.json schema) */
-export interface ExperienceManifest {
+/** Agent category for Houston Store filtering */
+export type AgentCategory =
+  | "productivity"
+  | "development"
+  | "research"
+  | "creative"
+  | "business";
+
+/** The agent config (houston.json schema) */
+export interface AgentConfig {
   id: string;
   name: string;
   description: string;
   version?: string;
-  icon?: string;           // Lucide icon name
+  icon?: string;           // Lucide icon name (fallback if no image)
+  image?: string;          // Image URL for store card
   color?: string;          // Brand color override
-  tabs: ExperienceTab[];
+  category?: AgentCategory;
+  author?: string;         // e.g. "Houston" for official, user name for community
+  tags?: string[];         // Searchable tags
+  tabs: AgentTab[];
   defaultTab?: string;     // Tab ID to show by default, defaults to first tab
   claudeMd?: string;       // CLAUDE.md content template
   systemPrompt?: string;   // System prompt for the assistant
-  workspaceSeeds?: Record<string, string>;  // Files to seed in new workspaces
+  agentSeeds?: Record<string, string>;  // Files to seed in new agents
   features?: string[];     // Rust feature flags needed
 }
 
-/** A resolved experience (manifest + where it came from) */
-export interface Experience {
-  manifest: ExperienceManifest;
+/** A resolved agent definition (config + where it came from) */
+export interface AgentDefinition {
+  config: AgentConfig;
   source: "builtin" | "installed";
-  path?: string;           // For installed: ~/.houston/experiences/{id}/
+  path?: string;           // For installed: ~/.houston/agents/{id}/
   bundleUrl?: string;      // For custom React: URL to bundle.js
 }
 
-/** A user workspace (an instance of an experience) */
-export interface Workspace {
+/** An agent instance (formerly "Workspace") */
+export interface Agent {
   id: string;
   name: string;
-  folderPath: string;      // ~/Documents/Houston/{name}/
-  experienceId: string;    // Points to an Experience
+  folderPath: string;      // ~/Documents/Houston/{WorkspaceName}/{AgentName}/
+  configId: string;      // Points to an AgentConfig
+  color?: string;        // User-chosen color for avatar
   createdAt: string;
   lastOpenedAt?: string;
 }
 
 /** Props injected into every tab component */
 export interface TabProps {
-  workspace: Workspace;
-  experience: Experience;
+  agent: Agent;
+  agentDef: AgentDefinition;
 }
 
 /** Props injected into custom (bundle.js) tab components */
@@ -87,6 +112,14 @@ export interface CommunitySkillResult {
   source: string;
 }
 
+/** A skill discovered in a GitHub repo */
+export interface RepoSkill {
+  id: string;
+  name: string;
+  description: string;
+  path: string;
+}
+
 /** File entry returned by list_project_files */
 export interface FileEntry {
   path: string;
@@ -102,10 +135,32 @@ export interface LearningsData {
   limit: number;
 }
 
+/** A tracked Composio integration for an agent */
+export interface TrackedIntegration {
+  toolkit: string;
+  first_used_at: string;
+  last_used_at: string;
+  use_count: number;
+}
+
 /** A channel entry from .houston/channels.json */
 export interface ChannelEntry {
   id: string;
   channel_type: string;
   name: string;
   token: string;
+}
+
+/** A listing from the Houston Store registry */
+export interface StoreListing {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  author: string;
+  tags: string[];
+  icon_url: string;
+  repo: string;
+  installs: number;
+  registered_at: string;
 }

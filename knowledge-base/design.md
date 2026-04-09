@@ -238,6 +238,26 @@ No bubble. Plain text/markdown, left-aligned, transparent background.
 - All containers must be `flex flex-col` for `flex-1 justify-center` to work
 - Action button: primary style, `rounded-full`
 
+### Progress Panel
+`ProgressPanel` from `@houston-ai/chat` — a step-by-step checklist rendered alongside the chat panel.
+
+- Agent calls `update_progress({ steps: [{ title, status }] })` during execution
+- `useProgressSteps()` hook extracts the latest progress from the feed
+- Step states: **pending** (empty circle), **active** (spinning loader, highlighted text), **done** (green filled checkmark)
+- Header shows "X of Y steps complete"
+- Renders as a narrow right-side panel alongside `ChatPanel` in the app's chat tab
+
+---
+
+## Sidebar Styles
+
+Design tokens for the sidebar — see `knowledge-base/houston.md` for the navigation structure.
+
+- **Items:** `text-sm`, `py-1.5 px-2.5`, `rounded-lg` on hover
+- **Active state:** `bg-gray-200` background, `font-medium`
+- **Section headers:** `text-xs font-medium text-muted-foreground`
+- **WorkspaceSwitcher:** dropdown trigger — current workspace name + chevron, same item padding
+
 ---
 
 ## Layout

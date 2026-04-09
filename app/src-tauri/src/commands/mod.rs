@@ -1,3 +1,11 @@
-pub mod experiences;
-pub mod sessions;
+pub mod agent_configs;
+pub mod agents;
+pub mod attachments;
+pub mod chat;
+pub mod memory;
+pub mod preferences;
+pub mod skills;
+pub mod slack;
+pub mod store;
+pub mod system;
 pub mod workspaces;

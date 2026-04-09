@@ -1,32 +1,40 @@
-import { useState, type FormEvent } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  Button,
-  Input,
-} from "@houston-ai/core";
-import { useExperienceStore } from "../../stores/experiences";
+import { useState, useMemo, type FormEvent } from "react";
+import { Dialog, DialogContent } from "@houston-ai/core";
+import { useAgentCatalogStore } from "../../stores/agent-catalog";
+import { useAgentStore } from "../../stores/agents";
 import { useWorkspaceStore } from "../../stores/workspaces";
 import { useUIStore } from "../../stores/ui";
+import { tauriChat } from "../../lib/tauri";
+import type { AgentCategory, StoreListing } from "../../lib/types";
+import { StoreStep } from "./store-step";
+import { NamingStep } from "./naming-step";
 
-export function CreateWorkspaceDialog() {
-  const open = useUIStore((s) => s.createWorkspaceDialogOpen);
-  const setOpen = useUIStore((s) => s.setCreateWorkspaceDialogOpen);
-  const experiences = useExperienceStore((s) => s.experiences);
-  const createWorkspace = useWorkspaceStore((s) => s.create);
+export function CreateAgentDialog() {
+  const open = useUIStore((s) => s.createAgentDialogOpen);
+  const setOpen = useUIStore((s) => s.setCreateAgentDialogOpen);
+  const agentDefs = useAgentCatalogStore((s) => s.agents);
+  const storeCatalog = useAgentCatalogStore((s) => s.storeCatalog);
+  const installedIds = useAgentCatalogStore((s) => s.installedIds);
+  const installAgent = useAgentCatalogStore((s) => s.installAgent);
+  const createAgent = useAgentStore((s) => s.create);
+  const currentWorkspace = useWorkspaceStore((s) => s.current);
 
   const [step, setStep] = useState<1 | 2>(1);
-  const [selectedExpId, setSelectedExpId] = useState<string | null>(null);
+  const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [color, setColor] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<"all" | AgentCategory>("all");
 
   const reset = () => {
     setStep(1);
-    setSelectedExpId(null);
+    setSelectedConfigId(null);
     setName("");
+    setColor(undefined);
     setError(null);
+    setSearch("");
+    setCategory("all");
   };
 
   const handleClose = () => {
@@ -34,76 +42,89 @@ export function CreateWorkspaceDialog() {
     reset();
   };
 
-  const handleSelectExperience = (id: string) => {
-    setSelectedExpId(id);
-    setStep(2);
-  };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
-    if (!trimmed || !selectedExpId) return;
+    if (!trimmed || !selectedConfigId || !currentWorkspace) return;
     try {
-      await createWorkspace(trimmed, selectedExpId);
+      const { agent, onboardingActivityId } = await createAgent(
+        currentWorkspace.id,
+        trimmed,
+        selectedConfigId,
+        color,
+        selectedDef?.config.claudeMd,
+      );
+      // For blank agents, kick off the onboarding conversation. The instructions
+      // are injected into the system prompt so they never appear in the chat feed.
+      if (selectedConfigId === "blank" && onboardingActivityId) {
+        tauriChat.startOnboarding(agent.folderPath, `activity-${onboardingActivityId}`);
+      }
+      const firstTab = selectedDef?.config.defaultTab ?? selectedDef?.config.tabs[0]?.id ?? "chat";
+      useUIStore.getState().setViewMode(firstTab);
       handleClose();
     } catch (err) {
       setError(String(err));
     }
   };
 
+  const handleInstall = async (listing: StoreListing) => {
+    await installAgent(listing);
+  };
+
+  const filtered = useMemo(() => {
+    let result = agentDefs;
+    if (category !== "all") {
+      result = result.filter((d) => d.config.category === category);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (d) =>
+          d.config.name.toLowerCase().includes(q) ||
+          d.config.description.toLowerCase().includes(q) ||
+          d.config.tags?.some((t) => t.toLowerCase().includes(q)),
+      );
+    }
+    return result;
+  }, [agentDefs, category, search]);
+
+  const houstonAgents = filtered.filter((d) => d.config.author === "Houston");
+  const communityAgents = filtered.filter(
+    (d) => d.config.author && d.config.author !== "Houston",
+  );
+  const selectedDef = agentDefs.find((d) => d.config.id === selectedConfigId);
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>
-            {step === 1 ? "Choose an experience" : "Name your workspace"}
-          </DialogTitle>
-        </DialogHeader>
-
+      <DialogContent className="sm:max-w-[900px] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
         {step === 1 ? (
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            {experiences.map((exp) => (
-              <button
-                key={exp.manifest.id}
-                onClick={() => handleSelectExperience(exp.manifest.id)}
-                className="flex flex-col items-start gap-1.5 rounded-xl border border-border p-4 text-left hover:bg-accent transition-colors"
-              >
-                <span className="text-sm font-medium text-foreground">
-                  {exp.manifest.name}
-                </span>
-                <span className="text-xs text-muted-foreground line-clamp-2">
-                  {exp.manifest.description}
-                </span>
-              </button>
-            ))}
-          </div>
+          <StoreStep
+            search={search}
+            onSearchChange={setSearch}
+            category={category}
+            onCategoryChange={setCategory}
+            houstonAgents={houstonAgents}
+            communityAgents={communityAgents}
+            storeCatalog={storeCatalog}
+            installedIds={installedIds}
+            hasResults={filtered.length > 0}
+            onSelect={(id) => {
+              setSelectedConfigId(id);
+              setStep(2);
+            }}
+            onInstall={handleInstall}
+          />
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-            <Input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Workspace name"
-            />
-            {error && <p className="text-xs text-destructive">{error}</p>}
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-full"
-                onClick={() => setStep(1)}
-              >
-                Back
-              </Button>
-              <Button
-                type="submit"
-                disabled={!name.trim()}
-                className="rounded-full"
-              >
-                Create
-              </Button>
-            </div>
-          </form>
+          <NamingStep
+            selectedAgent={selectedDef}
+            name={name}
+            color={color}
+            error={error}
+            onNameChange={setName}
+            onColorChange={setColor}
+            onBack={() => setStep(1)}
+            onSubmit={handleSubmit}
+          />
         )}
       </DialogContent>
     </Dialog>

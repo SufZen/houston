@@ -5,6 +5,7 @@
 
 use crate::chat_session::ChatSessionState;
 use crate::events::HoustonEvent;
+use crate::session_pids::SessionPidMap;
 use houston_db::Database;
 use houston_sessions::{FeedItem, SessionManager, SessionStatus, SessionUpdate};
 use std::path::PathBuf;
@@ -21,12 +22,12 @@ pub struct SessionResult {
 #[derive(Clone)]
 pub struct PersistOptions {
     pub db: Database,
-    pub project_id: String,
-    pub feed_key: String,
     pub source: String,
-    /// v2: when set, feed items are persisted keyed by claude_session_id
-    /// instead of (project_id, feed_key). Set automatically once the session
-    /// reports its ID via SessionUpdate::SessionId.
+    /// The user message that started this turn. Persisted once the Claude
+    /// session ID is known. Runner consumes this on SessionUpdate::SessionId.
+    pub user_message: Option<String>,
+    /// Set automatically once the session reports its ID via
+    /// SessionUpdate::SessionId. Do not set manually.
     pub claude_session_id: Option<String>,
 }
 
@@ -37,25 +38,27 @@ pub struct PersistOptions {
 /// so apps don't need to remember to initialize PATH resolution.
 pub fn spawn_and_monitor(
     app_handle: &tauri::AppHandle,
+    agent_path: String,
     session_key: String,
     prompt: String,
     resume_id: Option<String>,
-    working_dir: Option<PathBuf>,
+    working_dir: PathBuf,
     system_prompt: Option<String>,
     chat_state: Option<ChatSessionState>,
     persist: Option<PersistOptions>,
+    pid_map: Option<SessionPidMap>,
 ) -> tokio::task::JoinHandle<SessionResult> {
     // Ensure the user's shell PATH is resolved before spawning claude.
     // OnceLock inside init() makes this a no-op after the first call.
     houston_sessions::claude_path::init();
 
-    // Clone working_dir before spawn_session consumes it — needed for .claude_session_id persistence.
+    // Clone working_dir — needed for per-session .sid persistence after spawn_session consumes one copy.
     let persist_dir = working_dir.clone();
 
     let (mut rx, _handle) = SessionManager::spawn_session(
         prompt,
         resume_id,
-        working_dir,
+        Some(working_dir),
         None,  // model
         None,  // effort
         system_prompt,
@@ -66,6 +69,7 @@ pub fn spawn_and_monitor(
 
     let handle = app_handle.clone();
     let key = session_key;
+    let agent_path_for_events = agent_path;
     let working_dir = persist_dir;
     let mut persist = persist;
     tokio::spawn(async move {
@@ -75,6 +79,12 @@ pub fn spawn_and_monitor(
 
         while let Some(update) = rx.recv().await {
             match update {
+                SessionUpdate::ProcessPid(pid) => {
+                    if let Some(ref pm) = pid_map {
+                        pm.insert(key.clone(), pid).await;
+                    }
+                    continue;
+                }
                 SessionUpdate::Feed(ref item) => {
                     if let FeedItem::AssistantText(text) = item {
                         response_text = Some(text.clone());
@@ -82,31 +92,24 @@ pub fn spawn_and_monitor(
                     let _ = handle.emit(
                         "houston-event",
                         HoustonEvent::FeedItem {
+                            agent_path: agent_path_for_events.clone(),
                             session_key: key.clone(),
                             item: item.clone(),
                         },
                     );
-                    // Persist non-streaming items to DB.
+                    // Persist non-streaming items once the Claude session id is known.
                     if let Some(ref opts) = persist {
-                        if let Some((ft, dj)) = serialize_for_persist(item) {
+                        if let (Some(sid), Some((ft, dj))) =
+                            (opts.claude_session_id.as_ref(), serialize_for_persist(item))
+                        {
                             let db = opts.db.clone();
                             let src = opts.source.clone();
-                            // v2: prefer session-keyed persistence when available.
-                            if let Some(ref sid) = opts.claude_session_id {
-                                let sid = sid.clone();
-                                tokio::spawn(async move {
-                                    let _ = db
-                                        .add_chat_feed_item_by_session(&sid, &ft, &dj, &src)
-                                        .await;
-                                });
-                            } else {
-                                let pid = opts.project_id.clone();
-                                let fk = opts.feed_key.clone();
-                                tokio::spawn(async move {
-                                    let _ =
-                                        db.add_chat_feed_item(&pid, &fk, &ft, &dj, &src).await;
-                                });
-                            }
+                            let sid = sid.clone();
+                            tokio::spawn(async move {
+                                let _ = db
+                                    .add_chat_feed_item_by_session(&sid, &ft, &dj, &src)
+                                    .await;
+                            });
                         }
                     }
                 }
@@ -115,15 +118,32 @@ pub fn spawn_and_monitor(
                     if let Some(ref state) = chat_state {
                         state.set(sid.clone()).await;
                     }
-                    // Track the session ID for subsequent persist calls.
+                    // Track the session ID and persist the pending user message.
                     if let Some(ref mut opts) = persist {
                         opts.claude_session_id = Some(sid.clone());
+                        if let Some(user_msg) = opts.user_message.take() {
+                            let db = opts.db.clone();
+                            let src = opts.source.clone();
+                            let sid_clone = sid.clone();
+                            let data = serde_json::Value::String(user_msg).to_string();
+                            tokio::spawn(async move {
+                                let _ = db
+                                    .add_chat_feed_item_by_session(
+                                        &sid_clone,
+                                        "user_message",
+                                        &data,
+                                        &src,
+                                    )
+                                    .await;
+                            });
+                        }
                     }
-                    // Persist to disk so --resume survives app restarts.
-                    if let Some(ref dir) = working_dir {
-                        let session_file = dir.join(".claude_session_id");
-                        std::fs::write(&session_file, &sid).ok();
-                    }
+                    // Persist session id to disk so --resume survives app restarts.
+                    // Every session is scoped by session_key — no shared file.
+                    let sessions_dir = working_dir.join(".houston").join("sessions");
+                    std::fs::create_dir_all(&sessions_dir).ok();
+                    let sid_file = sessions_dir.join(format!("{key}.sid"));
+                    std::fs::write(&sid_file, &sid).ok();
                 }
                 SessionUpdate::Status(ref status) => {
                     let (status_str, err) = match status {
@@ -138,14 +158,19 @@ pub fn spawn_and_monitor(
                     let _ = handle.emit(
                         "houston-event",
                         HoustonEvent::SessionStatus {
+                            agent_path: agent_path_for_events.clone(),
                             session_key: key.clone(),
                             status: status_str,
                             error: err,
                         },
                     );
                 }
-                _ => {}
             }
+        }
+
+        // Clean up PID tracking on completion
+        if let Some(ref pm) = pid_map {
+            pm.remove(&key).await;
         }
 
         SessionResult {

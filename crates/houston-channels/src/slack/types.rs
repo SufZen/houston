@@ -31,6 +31,8 @@ pub struct SlackMessageEvent {
     pub subtype: Option<String>,
     pub channel: Option<String>,
     pub user: Option<String>,
+    /// Present when the message was sent by a bot.
+    pub bot_id: Option<String>,
     pub text: Option<String>,
     pub ts: Option<String>,
     pub thread_ts: Option<String>,
@@ -56,7 +58,62 @@ pub struct SocketModeAck {
 #[derive(Debug, Deserialize)]
 pub struct PostMessageResponse {
     pub ok: bool,
+    pub ts: Option<String>,
+    pub channel: Option<String>,
     pub error: Option<String>,
+}
+
+/// Response from Slack's `conversations.create` API.
+#[derive(Debug, Deserialize)]
+pub struct ConversationsCreateResponse {
+    pub ok: bool,
+    pub channel: Option<ConversationsCreateChannel>,
+    pub error: Option<String>,
+}
+
+/// Channel info in `conversations.create` response.
+#[derive(Debug, Deserialize)]
+pub struct ConversationsCreateChannel {
+    pub id: String,
+    pub name: String,
+}
+
+/// Response from Slack's `conversations.list` API.
+#[derive(Debug, Deserialize)]
+pub struct ConversationsListResponse {
+    pub ok: bool,
+    pub channels: Option<Vec<ConversationsListChannel>>,
+    pub error: Option<String>,
+}
+
+/// Channel info in `conversations.list` response.
+#[derive(Debug, Deserialize)]
+pub struct ConversationsListChannel {
+    pub id: String,
+    pub name: String,
+}
+
+/// Response from Slack's `oauth.v2.access` API.
+#[derive(Debug, Deserialize)]
+pub struct OAuthAccessResponse {
+    pub ok: bool,
+    pub access_token: Option<String>,
+    pub team: Option<OAuthTeam>,
+    pub authed_user: Option<OAuthAuthedUser>,
+    pub error: Option<String>,
+}
+
+/// Team info in OAuth response.
+#[derive(Debug, Deserialize)]
+pub struct OAuthTeam {
+    pub id: String,
+    pub name: String,
+}
+
+/// Authed user info in OAuth response.
+#[derive(Debug, Deserialize)]
+pub struct OAuthAuthedUser {
+    pub id: String,
 }
 
 /// Response from Slack's `users.info` API.
@@ -73,4 +130,14 @@ pub struct SlackUser {
     pub id: Option<String>,
     pub name: Option<String>,
     pub real_name: Option<String>,
+    pub profile: Option<SlackUserProfile>,
+}
+
+/// Slack user profile with avatar.
+#[derive(Debug, Deserialize)]
+pub struct SlackUserProfile {
+    pub display_name: Option<String>,
+    pub real_name: Option<String>,
+    pub image_48: Option<String>,
+    pub image_72: Option<String>,
 }

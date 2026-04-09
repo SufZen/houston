@@ -1,56 +1,84 @@
-import { useState, useEffect, useCallback } from "react";
-import { ConnectionsView } from "@houston-ai/connections";
-import type { ConnectionsResult } from "@houston-ai/connections";
-import { invoke } from "@tauri-apps/api/core";
-import { tauriConnections } from "../../lib/tauri";
+import { useCallback, useState } from "react";
+import { useConnections, useInvalidateConnections } from "../../hooks/queries";
+import { tauriConnections, tauriSystem } from "../../lib/tauri";
+import { useComposioAuth } from "../../hooks/use-composio-auth";
+import { ComposioAuthDialog } from "../composio-auth-dialog";
+import { BrowseAppsSection } from "./browse-apps-section";
+import {
+  LoadingState,
+  NotInstalledState,
+  NeedsAuthState,
+  ErrorState,
+  SignedInHeader,
+} from "./integrations-states";
 import type { TabProps } from "../../lib/types";
 
 const COMPOSIO_DASHBOARD_URL = "https://dashboard.composio.dev";
 
 export default function ConnectionsTab(_props: TabProps) {
-  const [result, setResult] = useState<ConnectionsResult | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchConnections = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await tauriConnections.list();
-      setResult(data);
-    } catch (e) {
-      console.error("[connections] Failed to load:", e);
-      setResult({ status: "error", message: String(e) });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchConnections();
-  }, [fetchConnections]);
+  const { data: result, isLoading: loading, refetch } = useConnections();
+  const invalidate = useInvalidateConnections();
+  const auth = useComposioAuth(() => invalidate());
+  const [installing, setInstalling] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
 
   const handleManage = useCallback(() => {
-    invoke("open_url", { url: COMPOSIO_DASHBOARD_URL });
+    tauriSystem.openUrl(COMPOSIO_DASHBOARD_URL);
   }, []);
 
-  const handleAuth = useCallback(async () => {
-    setLoading(true);
+  const handleInstall = useCallback(async () => {
+    setInstalling(true);
+    setInstallError(null);
     try {
-      await invoke("start_composio_oauth");
-      await fetchConnections();
+      await tauriConnections.installCli();
+      invalidate();
     } catch (e) {
-      console.error("[connections] OAuth failed:", e);
-      setResult({ status: "error", message: String(e) });
-      setLoading(false);
+      setInstallError(String(e));
+    } finally {
+      setInstalling(false);
     }
-  }, [fetchConnections]);
+  }, [invalidate]);
 
   return (
-    <ConnectionsView
-      result={result}
-      loading={loading}
-      onRetry={fetchConnections}
-      onManage={handleManage}
-      onAuth={handleAuth}
-    />
+    <div className="h-full overflow-auto">
+      <div className="max-w-3xl mx-auto w-full px-6 py-6">
+        {loading && <LoadingState />}
+
+        {!loading && result?.status === "not_installed" && (
+          <NotInstalledState onInstall={handleInstall} installing={installing} />
+        )}
+
+        {!loading && result?.status === "needs_auth" && (
+          <NeedsAuthState onAuth={auth.startAuth} />
+        )}
+
+        {!loading && result?.status === "error" && (
+          <ErrorState
+            message={result.message}
+            onRetry={() => refetch()}
+            onReconnect={handleManage}
+          />
+        )}
+
+        {installError && (
+          <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mt-4">
+            {installError}
+          </p>
+        )}
+
+        {!loading && result?.status === "ok" && (
+          <>
+            <SignedInHeader email={result.email} orgName={result.org_name} />
+            <BrowseAppsSection connectedToolkits={new Set()} />
+          </>
+        )}
+      </div>
+
+      <ComposioAuthDialog
+        state={auth.state}
+        onClose={auth.close}
+        onReopenBrowser={auth.reopenBrowser}
+      />
+    </div>
   );
 }

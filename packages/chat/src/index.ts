@@ -164,8 +164,8 @@ export { ChatInput } from "./chat-input";
 export type { ChatInputProps } from "./chat-input";
 export type { AttachMenuItem } from "./chat-input-parts";
 
-export { ToolActivity, ToolsAndCards, feedItemsToMessages } from "./chat-helpers";
-export type { ToolActivityProps, ToolsAndCardsProps } from "./chat-helpers";
+export { ToolActivity, ToolsAndCards, ToolBlock, feedItemsToMessages } from "./chat-helpers";
+export type { ToolActivityProps, ToolsAndCardsProps, ToolBlockProps } from "./chat-helpers";
 
 // === Progress ===
 export { useProgressSteps } from "./use-progress-steps";
@@ -178,3 +178,6 @@ export { Typewriter } from "./typewriter";
 export { mergeFeedItem } from "./feed-merge";
 export { ChannelAvatar } from "./channel-avatar";
 export type { ChannelSource } from "./channel-avatar";
+
+export { ChatSidebar } from "./chat-sidebar";
+export type { ChatSidebarProps } from "./chat-sidebar";

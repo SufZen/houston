@@ -14,7 +14,7 @@ pub struct Agent {
     pub path: String,
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn list_agents(root: State<'_, WorkspaceRoot>) -> Result<Vec<Agent>, String> {
     let dir = expand_tilde(&PathBuf::from(&root.0));
     std::fs::create_dir_all(&dir)
@@ -36,7 +36,7 @@ pub async fn list_agents(root: State<'_, WorkspaceRoot>) -> Result<Vec<Agent>, S
     Ok(agents)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn create_agent(
     root: State<'_, WorkspaceRoot>,
     name: String,
@@ -52,7 +52,7 @@ pub async fn create_agent(
     })
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn rename_agent(
     agent_path: String,
     new_name: String,
@@ -68,7 +68,7 @@ pub async fn rename_agent(
     })
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn delete_agent(agent_path: String) -> Result<(), String> {
     let dir = expand_tilde(&PathBuf::from(&agent_path));
     if dir.exists() {
@@ -78,12 +78,13 @@ pub async fn delete_agent(agent_path: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn send_message(
     app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     agent_sessions: State<'_, AgentSessionMap>,
     workspace_path: String,
+    session_key: String,
     prompt: String,
 ) -> Result<String, String> {
     let working_dir = expand_tilde(&PathBuf::from(&workspace_path));
@@ -94,83 +95,63 @@ pub async fn send_message(
     workspace::seed_workspace(&working_dir)?;
     let system_prompt = workspace::build_system_prompt(&working_dir);
 
-    let agent_key = working_dir.to_string_lossy().to_string();
+    let agent_key = format!("{}:{}", working_dir.to_string_lossy(), session_key);
     let chat_state = agent_sessions
-        .get_for_agent(&agent_key, &workspace_path)
+        .get_for_session(&agent_key, &workspace_path, &session_key)
         .await;
     let resume_id = chat_state.get().await;
     eprintln!(
-        "[{{APP_NAME}}:session] resume_id={:?} for agent={}",
+        "[{{APP_NAME}}:session] resume_id={:?} for key={}",
         resume_id, agent_key
     );
 
-    let session_key = "main".to_string();
-
-    let _ = state
-        .db
-        .add_chat_feed_item(
-            &agent_key,
-            "main",
-            "user_message",
-            &serde_json::Value::String(prompt.clone()).to_string(),
-            "desktop",
-        )
-        .await;
-
     houston_tauri::session_runner::spawn_and_monitor(
         &app_handle,
+        workspace_path.clone(),
         session_key.clone(),
-        prompt,
+        prompt.clone(),
         resume_id,
-        Some(working_dir),
+        working_dir,
         Some(system_prompt),
         Some(chat_state),
         Some(PersistOptions {
             db: state.db.clone(),
-            project_id: agent_key,
-            feed_key: "main".into(),
             source: "desktop".into(),
+            user_message: Some(prompt),
             claude_session_id: None,
         }),
+        None,
     );
 
     Ok(session_key)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn load_chat_history(
     state: State<'_, AppState>,
     workspace_path: String,
+    session_key: String,
 ) -> Result<Vec<serde_json::Value>, String> {
     let working_dir = expand_tilde(&PathBuf::from(&workspace_path));
-    let session_file = working_dir.join(".claude_session_id");
+    let sid_path = houston_tauri::agent_sessions::session_id_path(&working_dir, &session_key);
 
-    // Load from both v1 (agent_key + feed_key) and v2 (claude_session_id) sources.
-    // User messages are persisted via v1 path (before session ID is known).
-    // Agent messages are persisted via v2 path (after session ID arrives).
-    let agent_key = working_dir.to_string_lossy().to_string();
-    let mut v1_rows = state
+    let Some(claude_session_id) = std::fs::read_to_string(&sid_path)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+    else {
+        return Ok(Vec::new());
+    };
+
+    let mut rows = state
         .db
-        .list_chat_feed(&agent_key, "main")
+        .list_chat_feed_by_session(&claude_session_id)
         .await
         .map_err(|e| e.to_string())?;
 
-    if let Ok(id) = std::fs::read_to_string(&session_file) {
-        let id = id.trim().to_string();
-        if !id.is_empty() {
-            let v2_rows = state
-                .db
-                .list_chat_feed_by_session(&id)
-                .await
-                .map_err(|e| e.to_string())?;
-            v1_rows.extend(v2_rows);
-        }
-    }
+    rows.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
 
-    // Sort by timestamp and deduplicate
-    v1_rows.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
-
-    Ok(v1_rows
+    Ok(rows
         .into_iter()
         .map(|row| {
             serde_json::json!({
@@ -182,7 +163,7 @@ pub async fn load_chat_history(
         .collect())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn read_workspace_file(
     workspace_path: String,
     name: String,
@@ -192,7 +173,7 @@ pub async fn read_workspace_file(
     std::fs::read_to_string(&path).map_err(|e| format!("Failed to read {name}: {e}"))
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn write_workspace_file(
     workspace_path: String,
     name: String,

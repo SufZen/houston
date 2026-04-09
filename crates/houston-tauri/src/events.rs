@@ -10,11 +10,13 @@ use serde::Serialize;
 pub enum HoustonEvent {
     /// A feed item from a running session.
     FeedItem {
+        agent_path: String,
         session_key: String,
         item: FeedItem,
     },
     /// Session status changed (starting, running, completed, error).
     SessionStatus {
+        agent_path: String,
         session_key: String,
         status: String,
         error: Option<String>,
@@ -28,7 +30,7 @@ pub enum HoustonEvent {
     AuthRequired {
         message: String,
     },
-    /// Task completion notification.
+    /// Activity completion notification.
     CompletionToast {
         title: String,
         issue_id: Option<String>,
@@ -83,14 +85,72 @@ pub enum HoustonEvent {
 
     // ----- Routines -----
 
-    /// A routine run changed status.
-    RoutineRunChanged {
-        routine_id: String,
-        run_id: String,
-        status: String,
-    },
-    /// Routines list changed for a project.
+    /// Routines list changed (.houston/routines.json).
     RoutinesChanged {
+        agent_path: String,
+    },
+    /// Routine runs changed (.houston/routine_runs.json).
+    RoutineRunsChanged {
+        agent_path: String,
+    },
+
+    // ----- Agent data changes (AI-native reactivity) -----
+    // Emitted by agent_store writes AND by the file watcher.
+    // Frontend uses these to invalidate TanStack Query caches.
+
+    /// Activity list changed (.houston/activity.json).
+    ActivityChanged {
+        agent_path: String,
+    },
+    /// Integrations changed (.houston/integrations.json).
+    IntegrationsChanged {
+        agent_path: String,
+    },
+    /// Skills changed (.agents/skills/ — skill.sh / Claude Code convention).
+    SkillsChanged {
+        agent_path: String,
+    },
+    /// Learnings changed (.houston/memory/).
+    LearningsChanged {
+        agent_path: String,
+    },
+    /// Channel config changed (.houston/channels.json).
+    ChannelsConfigChanged {
+        agent_path: String,
+    },
+    /// Agent files changed (non-.houston files).
+    FilesChanged {
+        agent_path: String,
+    },
+    /// Config changed (.houston/config.json).
+    ConfigChanged {
+        agent_path: String,
+    },
+    /// Context files changed (CLAUDE.md, .houston/prompts/).
+    ContextChanged {
+        agent_path: String,
+    },
+    /// Conversations list changed.
+    ConversationsChanged {
         project_id: String,
+        agent_path: String,
+    },
+
+    // ----- Slack Sync -----
+
+    /// Slack sync started for an agent.
+    SlackSyncStarted {
+        agent_path: String,
+        slack_channel_name: String,
+    },
+    /// Slack sync stopped for an agent.
+    SlackSyncStopped {
+        agent_path: String,
+    },
+    /// A new Slack thread was created for a conversation.
+    SlackThreadCreated {
+        agent_path: String,
+        session_key: String,
+        thread_ts: String,
     },
 }

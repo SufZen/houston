@@ -1,54 +1,142 @@
-import type { ReactNode } from "react";
-import { AppSidebar } from "@houston-ai/layout";
+import { useState, type ReactNode } from "react";
+import { LayoutDashboard, Blend, Settings } from "lucide-react";
+import { Button, ConfirmDialog } from "@houston-ai/core";
+import { AppSidebar, WorkspaceSwitcher } from "@houston-ai/layout";
 import { useWorkspaceStore } from "../../stores/workspaces";
-import { useExperienceStore } from "../../stores/experiences";
+import { useAgentStore } from "../../stores/agents";
+import { useAgentCatalogStore } from "../../stores/agent-catalog";
 import { useUIStore } from "../../stores/ui";
+import { AgentMiniAvatar } from "./experience-card";
 
 export function Sidebar({ children }: { children: ReactNode }) {
   const workspaces = useWorkspaceStore((s) => s.workspaces);
-  const current = useWorkspaceStore((s) => s.current);
-  const setCurrent = useWorkspaceStore((s) => s.setCurrent);
-  const rename = useWorkspaceStore((s) => s.rename);
-  const deleteWs = useWorkspaceStore((s) => s.delete);
-  const setDialogOpen = useUIStore((s) => s.setCreateWorkspaceDialogOpen);
-  const setViewMode = useUIStore((s) => s.setViewMode);
-  const getById = useExperienceStore((s) => s.getById);
+  const currentWorkspace = useWorkspaceStore((s) => s.current);
+  const setCurrentWorkspace = useWorkspaceStore((s) => s.setCurrent);
+  const createWorkspace = useWorkspaceStore((s) => s.create);
 
-  const sorted = [...workspaces].sort((a, b) => {
+  const agents = useAgentStore((s) => s.agents);
+  const currentAgent = useAgentStore((s) => s.current);
+  const setCurrentAgent = useAgentStore((s) => s.setCurrent);
+  const loadAgents = useAgentStore((s) => s.loadAgents);
+  const renameAgent = useAgentStore((s) => s.rename);
+  const deleteAgent = useAgentStore((s) => s.delete);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  const getById = useAgentCatalogStore((s) => s.getById);
+  const viewMode = useUIStore((s) => s.viewMode);
+  const setViewMode = useUIStore((s) => s.setViewMode);
+  const setDialogOpen = useUIStore((s) => s.setCreateAgentDialogOpen);
+
+  const sorted = [...agents].sort((a, b) => {
     const aTime = a.lastOpenedAt ?? a.createdAt;
     const bTime = b.lastOpenedAt ?? b.createdAt;
     return bTime.localeCompare(aTime);
   });
 
-  const items = sorted.map((ws) => {
-    const exp = getById(ws.experienceId);
-    const subtitle = exp?.manifest.name;
-    return { id: ws.id, name: ws.name, subtitle };
-  });
+  const items = sorted.map((a) => ({
+    id: a.id,
+    name: a.name,
+    icon: <AgentMiniAvatar color={a.color} />,
+  }));
+  const isTopLevel = viewMode === "dashboard" || viewMode === "connections";
 
-  const handleSelect = (id: string) => {
-    const ws = workspaces.find((w) => w.id === id);
+  const handleWorkspaceSwitch = async (wsId: string) => {
+    if (wsId === currentWorkspace?.id) return;
+    const ws = workspaces.find((s) => s.id === wsId);
     if (!ws) return;
-    setCurrent(ws);
+    setCurrentWorkspace(ws);
+    await loadAgents(ws.id);
+  };
 
-    // Set viewMode to the experience's default tab
-    const exp = getById(ws.experienceId);
-    if (exp?.manifest.defaultTab) {
-      setViewMode(exp.manifest.defaultTab);
-    }
+  const handleCreateWorkspace = async () => {
+    const name = window.prompt("Workspace name");
+    if (!name?.trim()) return;
+    const ws = await createWorkspace(name.trim());
+    setCurrentWorkspace(ws);
+    await loadAgents(ws.id);
+  };
+
+  const handleSelectAgent = (agentId: string) => {
+    const agent = agents.find((a) => a.id === agentId);
+    if (!agent) return;
+    setCurrentAgent(agent);
+    const def = getById(agent.configId);
+    setViewMode(def?.config.defaultTab ?? "chat");
+  };
+
+  const handleRename = async (agentId: string, newName: string) => {
+    if (!currentWorkspace) return;
+    await renameAgent(currentWorkspace.id, agentId, newName);
+  };
+
+  const handleDelete = (agentId: string) => {
+    setPendingDeleteId(agentId);
+  };
+
+  const confirmDelete = async () => {
+    if (!currentWorkspace || !pendingDeleteId) return;
+    await deleteAgent(currentWorkspace.id, pendingDeleteId);
+    setPendingDeleteId(null);
   };
 
   return (
-    <AppSidebar
-      items={items}
-      selectedId={current?.id ?? null}
-      onSelect={handleSelect}
-      onAdd={() => setDialogOpen(true)}
-      onRename={(id, newName) => rename(id, newName)}
-      onDelete={(id) => deleteWs(id)}
-      sectionLabel="Workspaces"
-    >
-      {children}
-    </AppSidebar>
+    <>
+    <ConfirmDialog
+      open={pendingDeleteId !== null}
+      onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}
+      title="Delete agent?"
+      description="This will permanently delete the agent and all its data. This cannot be undone."
+      confirmLabel="Delete"
+      onConfirm={confirmDelete}
+    />
+    <div className="flex h-full flex-1 min-w-0">
+      <AppSidebar
+        header={
+          <WorkspaceSwitcher
+            workspaces={workspaces}
+            currentId={currentWorkspace?.id ?? null}
+            currentName={currentWorkspace?.name ?? "Select workspace"}
+            onSwitch={handleWorkspaceSwitch}
+            onCreate={handleCreateWorkspace}
+            trailing={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 flex-shrink-0 rounded-lg"
+              >
+                <Settings className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            }
+          />
+        }
+        navItems={[
+          {
+            id: "dashboard",
+            label: "Mission Control",
+            icon: <LayoutDashboard className="h-4 w-4" />,
+            onClick: () => setViewMode("dashboard"),
+          },
+          {
+            id: "connections",
+            label: "Integrations",
+            icon: <Blend className="h-4 w-4" />,
+            onClick: () => setViewMode("connections"),
+          },
+        ]}
+        activeNavId={isTopLevel ? viewMode : undefined}
+        sectionLabel="Your Agents"
+        items={items}
+        selectedId={!isTopLevel ? currentAgent?.id ?? null : null}
+        onSelect={handleSelectAgent}
+        onAdd={() => setDialogOpen(true)}
+        onRename={handleRename}
+        onDelete={handleDelete}
+      >
+        <div className="flex-1 min-w-0 h-full overflow-hidden flex flex-col">
+          {children}
+        </div>
+      </AppSidebar>
+    </div>
+    </>
   );
 }
