@@ -5,7 +5,10 @@ declare const __APTABASE_APP_KEY__: string;
 const APP_KEY = typeof __APTABASE_APP_KEY__ !== "undefined" ? __APTABASE_APP_KEY__ : "";
 
 if (APP_KEY) {
-  init(APP_KEY);
+  init(APP_KEY, {
+    appVersion: typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "0.0.0",
+    isDebug: import.meta.env.DEV,
+  });
 }
 
 /**
