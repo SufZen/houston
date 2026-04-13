@@ -41,11 +41,8 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_sentry::init(client));
     }
 
-    // Aptabase analytics — only if app key was provided
-    let aptabase_key = option_env!("APTABASE_APP_KEY").unwrap_or("");
-    if !aptabase_key.is_empty() {
-        builder = builder.plugin(tauri_plugin_aptabase::Builder::new(aptabase_key).build());
-    }
+    // Aptabase analytics is handled entirely in the frontend via @aptabase/web
+    // (no Rust plugin needed — avoids Tokio runtime conflicts)
 
     builder
         .plugin(tauri_plugin_notification::init())
