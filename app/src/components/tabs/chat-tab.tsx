@@ -23,6 +23,7 @@ import type { TabProps } from "../../lib/types";
 import { HoustonThinkingIndicator } from "../shell/experience-card";
 import { ChatModelSelector } from "../chat-model-selector";
 import { getDefaultModel } from "../../lib/providers";
+import { AuthReconnectBanner } from "../shell/auth-reconnect-banner";
 
 export default function ChatTab({ agent }: TabProps) {
   const { isSpecialTool, renderToolResult, renderTurnSummary } = useFileToolRenderer(agent.folderPath);
@@ -146,7 +147,10 @@ export default function ChatTab({ agent }: TabProps) {
         ? `${text}${text ? "\n\n" : ""}Attached: ${files.map((f) => f.name).join(", ")}`
         : text;
       pushFeedItem(agentPath, sessionKey, { feed_type: "user_message", data: visible });
-      analytics.track("chat_message_sent");
+      if (!feedItems?.length) {
+        analytics.track("session_started", { agent_id: agent.id, agent_name: agent.name });
+      }
+      analytics.track("chat_message_sent", { agent_id: agent.id });
       // Clear composer immediately so the user sees the send.
       setComposerText("");
       setComposerFiles([]);
@@ -172,6 +176,7 @@ export default function ChatTab({ agent }: TabProps) {
 
   return (
     <div className="h-full w-full flex flex-col">
+      <AuthReconnectBanner />
       <ChatPanel
         sessionKey={sessionKey}
         feedItems={feedItems ?? []}
